@@ -10,6 +10,7 @@ use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.auth')] class extends Component {
     public string $name = '';
+    public ?string $last_name = null;
     public string $email = '';
     public string $password = '';
     public string $password_confirmation = '';
@@ -21,11 +22,15 @@ new #[Layout('components.layouts.auth')] class extends Component {
     {
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
+            'last_name' => ['nullable', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
         ]);
 
         $validated['password'] = Hash::make($validated['password']);
+
+        $fullName = trim($validated['name'] . ' ' . ($validated['last_name'] ?? ''));
+        $validated['username'] = generateUserName($fullName);
 
         event(new Registered(($user = User::create($validated))));
 
@@ -45,12 +50,21 @@ new #[Layout('components.layouts.auth')] class extends Component {
         <!-- Name -->
         <flux:input
             wire:model="name"
-            :label="__('Name')"
+            :label="__('First Name')"
             type="text"
             required
             autofocus
             autocomplete="name"
-            :placeholder="__('Full name')"
+            :placeholder="__('First name')"
+        />
+        <!-- Last Name -->
+        <flux:input
+            wire:model="last_name"
+            :label="__('Last Name')"
+            type="text"
+            required
+            autocomplete="family-name"
+            :placeholder="__('Last Name')"
         />
 
         <!-- Email Address -->
