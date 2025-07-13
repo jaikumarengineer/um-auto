@@ -55,33 +55,6 @@
             </flux:navlist.item>
         @endforeach
     </flux:navlist>
-
-    <!-- Desktop User Menu -->
-    <flux:dropdown position="top" align="start" class="max-lg:hidden">
-        <flux:profile
-            :name="auth()->user()->name"
-            :initials="auth()->user()->initials()"
-        />
-
-        <flux:menu>
-            <flux:menu.radio.group>
-                <flux:menu.radio checked>{{ auth()->user()->name }}</flux:menu.radio>
-            </flux:menu.radio.group>
-
-            <flux:menu.separator />
-
-            <flux:menu.item :href="route('admin::settings.general')" icon="cog-6-tooth" wire:navigate>{{ __('Settings') }}</flux:menu.item>
-
-            <flux:menu.separator />
-
-            <form method="POST" action="{{ route('logout') }}" class="w-full">
-                @csrf
-                <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" class="w-full">
-                    {{ __('Log Out') }}
-                </flux:menu.item>
-            </form>
-        </flux:menu>
-    </flux:dropdown>
 </flux:sidebar>
 
 <!-- Mobile User Menu -->

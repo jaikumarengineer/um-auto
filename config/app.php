@@ -14,6 +14,8 @@ return [
     */
 
     'name' => env('APP_NAME', 'Laravel'),
+    'company_name' => env('COMPANY_NAME', 'Agile Legions'),
+    'company_url' => env('COMPANY_URL', 'https://agilelegions.com'),
 
     /*
     |--------------------------------------------------------------------------

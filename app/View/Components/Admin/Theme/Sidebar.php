@@ -38,10 +38,10 @@ class Sidebar extends Component
     {
         return [
             'dashboard-group' => [
-                'title' => 'Dashboard & Platform',
+                'title' => '',
                 'menu' => Arr::collapse([
                     $this->dashboardRoutes(),
-                    $this->settingsRoutes()
+                    $this->usersRoute()
                 ]),
             ],
             // 'settings-group' => [
@@ -58,15 +58,15 @@ class Sidebar extends Component
                 'type' => 'link',
                 'name' => __('Settings'),
                 'icon' => 'cog-6-tooth',
-                'url' => 'https://github.com/laravel/livewire-starter-kit',
-                'target' => '_blank',
+                'url' => route('admin::settings.general'),
+                'target' => '_self',
             ],
             [
                 'type' => 'link',
                 'name' => __('Help'),
                 'icon' => 'question-mark-circle',
-                'url' => 'https://laravel.com/docs/starter-kits#livewire',
-                'target' => '_blank',
+                'url' => route('admin::documentation.help'),
+                'target' => '_self',
             ],
         ];
     }
@@ -85,7 +85,38 @@ class Sidebar extends Component
         ];
     }
 
-    public function settingsRoutes()
+    public function usersRoute()
+    {
+        return [
+            [
+                'type' => 'dropdown',
+                'name' => __('Users'),
+                'icon' => 'users',
+                'active' => request()->routeIs('admin::users.*'),
+                'url' => '#',
+                'submenu' => [
+                    [
+                        'type' => 'link',
+                        'name' => __('User List'),
+                        'icon' => 'list',
+                        'active' => request()->routeIs('admin::users.list'),
+                        'url' => route('admin::users.list'),
+                        'submenu' => [],
+                    ],
+                    [
+                        'type' => 'link',
+                        'name' => __('Add User'),
+                        'icon' => 'user-plus',
+                        'active' => request()->routeIs('admin::users.create'),
+                        'url' => route('admin::users.create'),
+                        'submenu' => [],
+                    ],
+                ]
+            ]
+        ];
+    }
+
+    public function blogRoute()
     {
         return [
             [

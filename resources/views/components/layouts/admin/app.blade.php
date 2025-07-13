@@ -8,12 +8,13 @@
 
 <body class="min-h-screen bg-white dark:bg-zinc-800">
 
-    <x-admin.theme.sidebar :title="$title ?? null" />
-
+    <x-admin.theme.sidebar />
+    <x-admin.theme.navbar />
     <flux:main>
-        <div class="flex flex-col min-h-screen">
-            <x-admin.theme.navbar />
-            {{ $slot }}
+        <div class="flex flex-col min-h-screen gap-6">
+            <div class="flex-1">
+                {{ $slot }}
+            </div>
             <x-admin.theme.footer />
         </div>
     </flux:main>

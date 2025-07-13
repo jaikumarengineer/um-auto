@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
+use Laravolt\Avatar\Facade as Avatar;
 
 class User extends Authenticatable
 {
@@ -75,6 +76,26 @@ class User extends Authenticatable
         ];
     }
 
+    protected $appends = [
+        'full_name',
+        'initials',
+        'avatar_url',
+    ];
+
+    public function getFullNameAttribute(): string
+    {
+        return trim("{$this->name} {$this->last_name}");
+    }
+
+    public function getAvatarUrlAttribute()
+    {
+        if ($this->image) {
+            return asset($this->image);
+        }
+
+        return Avatar::create($this->full_name)->toBase64();
+    }
+
     public function isAdmin(): bool
     {
         return in_array($this->user_type, array_keys(self::ADMIN_ROLES));
@@ -96,4 +117,5 @@ class User extends Authenticatable
             ->map(fn ($word) => Str::substr($word, 0, 1))
             ->implode('');
     }
+
 }
