@@ -1,4 +1,7 @@
 {
     "Core": true,
-    "Theme": true
+    "Theme": true,
+    "Blog": true,
+    "Plugin": true,
+    "Base": true
 }
