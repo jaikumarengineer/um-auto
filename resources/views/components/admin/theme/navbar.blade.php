@@ -6,20 +6,20 @@
 
     <flux:spacer />
 
-    <flux:dropdown x-data align="end">
-        <flux:button variant="subtle" square class="group" aria-label="Preferred color scheme">
-            <flux:icon.sun x-show="$flux.appearance === 'light'" variant="mini" class="text-zinc-500 dark:text-white" />
-            <flux:icon.moon x-show="$flux.appearance === 'dark'" variant="mini" class="text-zinc-500 dark:text-white" />
-            <flux:icon.moon x-show="$flux.appearance === 'system' && $flux.dark" variant="mini" />
-            <flux:icon.sun x-show="$flux.appearance === 'system' && ! $flux.dark" variant="mini" />
-        </flux:button>
+    {{-- <flux:button variant="subtle" square class="group" aria-label="Toggle theme" x-on:click="$flux.toggleTheme()">
+        <flux:icon.sun x-show="$flux.appearance === 'light'" variant="mini" class="text-zinc-500 dark:text-white" />
+        <flux:icon.moon x-show="$flux.appearance === 'dark'" variant="mini" class="text-zinc-500 dark:text-white" />
+        <flux:icon.moon x-show="$flux.appearance === 'system' && $flux.dark" variant="mini" />
+        <flux:icon.sun x-show="$flux.appearance === 'system' && ! $flux.dark" variant="mini" />
+    </flux:button> --}}
 
-        <flux:menu>
-            <flux:menu.item icon="sun" x-on:click="$flux.appearance = 'light'">Light</flux:menu.item>
-            <flux:menu.item icon="moon" x-on:click="$flux.appearance = 'dark'">Dark</flux:menu.item>
-            <flux:menu.item icon="computer-desktop" x-on:click="$flux.appearance = 'system'">System</flux:menu.item>
-        </flux:menu>
-    </flux:dropdown>
+    <flux:button x-data x-on:click="$flux.appearance = ($flux.appearance === 'dark' ? 'light' : 'dark')"
+        variant="subtle" aria-label="Toggle dark mode" square>
+        <flux:icon.sun x-show="$flux.appearance === 'light'" variant="mini" class="text-zinc-500 dark:text-white" />
+        <flux:icon.moon x-show="$flux.appearance === 'dark'" variant="mini" class="text-zinc-500 dark:text-white" />
+        <flux:icon.moon x-show="$flux.appearance === 'system' && $flux.dark" variant="mini" />
+        <flux:icon.sun x-show="$flux.appearance === 'system' && ! $flux.dark" variant="mini" />
+    </flux:button>
 
     @php
         $notifications = [
@@ -42,7 +42,7 @@
     @endphp
 
     <flux:dropdown align="end" class="mr-2">
-        <flux:button icon="bell" variant="subtle" />
+        <flux:button icon="bell" variant="subtle"  class="text-zinc-500 dark:text-white" />
 
         <flux:navmenu class="max-w-[24rem] w-[24rem]">
             <div class="px-4 py-2 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
@@ -74,11 +74,8 @@
                             <flux:text size="sm">
                                 {{ $notification->created_at->diffForHumans() ?? '' }}
                             </flux:text>
-                            <flux:badge
-                                size="sm"
-                                :color="!empty($notification->read) ? 'zinc' : 'red'"
-                                class="mt-1"
-                            >
+                            <flux:badge size="sm" :color="!empty($notification->read) ? 'zinc' : 'red'"
+                                class="mt-1">
                                 {{ !empty($notification->read) ? 'Read' : 'Unread' }}
                             </flux:badge>
                         </div>
@@ -95,7 +92,14 @@
 
     <div class="flex items-center gap-2">
         <flux:dropdown align="end">
-            <flux:profile avatar="https://unavatar.io/x/calebporzio" />
+            <flux:profile name="{{ auth()->user()->full_name ??'' }}" status="online">
+                <slot:avatar>
+                    @if (filled(auth()->user()->image))
+                    @else
+                        avatar="{{ auth()->user()->avatar_url }}"
+                    @endif
+                </slot:avatar>
+            </flux:profile>
 
             <flux:navmenu class="max-w-[12rem]">
                 <div class="px-2 py-1.5">
