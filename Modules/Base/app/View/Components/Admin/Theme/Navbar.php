@@ -1,12 +1,12 @@
 <?php
 
-namespace App\View\Components\Admin\Theme;
+namespace Modules\Base\View\Components\Admin\Theme;
 
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\View\Component;
 
-class Footer extends Component
+class Navbar extends Component
 {
     /**
      * Create a new component instance.
@@ -21,6 +21,6 @@ class Footer extends Component
      */
     public function render(): View|Closure|string
     {
-        return view('components.admin.theme.footer');
+        return view('base::components.admin.theme.navbar');
     }
 }

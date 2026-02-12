@@ -3,5 +3,6 @@
     "Theme": true,
     "Blog": true,
     "Plugin": true,
-    "Base": true
+    "Base": true,
+    "Plugins": true
 }

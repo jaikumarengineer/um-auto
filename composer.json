@@ -14,8 +14,10 @@
         "laravel/tinker": "^2.10.1",
         "laravolt/avatar": "^6.2",
         "livewire/flux": "^2.2",
-        "livewire/volt": "^1.7.0",
-        "nwidart/laravel-modules": "dev-master",
+        "livewire/livewire": "^4.0",
+        "livewire/volt": "^1.10",
+        "mhmiton/laravel-modules-livewire": "^1.6",
+        "nwidart/laravel-modules": "^12.0",
         "spatie/laravel-permission": "^6.20",
         "venturecraft/revisionable": "1.*"
     },
@@ -45,12 +47,6 @@
             "Tests\\": "tests/"
         }
     },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/Jaikumar0101/laravel-modules.git"
-        }
-    ],
     "scripts": {
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

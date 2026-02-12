@@ -1,6 +1,6 @@
 <?php
 
-namespace App\View\Components\Admin\Theme;
+namespace Modules\Base\View\Components\Admin\Theme;
 
 use Closure;
 use App\Models\User;
@@ -28,7 +28,7 @@ class Sidebar extends Component
      */
     public function render(): View|Closure|string
     {
-        return view('components.admin.theme.sidebar', [
+        return view('base::components.admin.theme.sidebar', [
             'menu' => $this->generateMenu(),
             'outlineMenu' => $this->getOutlineMenu(),
         ]);

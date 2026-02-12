@@ -11,7 +11,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.admin.auth')] class extends Component {
+new #[Layout('base::components.layouts.admin.auth')] class extends Component {
     #[Validate('required|string|email')]
     public string $email = '';
 
