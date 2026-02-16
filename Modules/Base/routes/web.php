@@ -2,11 +2,10 @@
 
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
-use Modules\Base\Http\Controllers\BaseController;
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::resource('bases', BaseController::class)->names('base');
-});
+// Route::middleware(['auth', 'verified'])->group(function () {
+//     Route::resource('bases', BaseController::class)->names('base');
+// });
 
 Route::group([
     'prefix' => config('theme.admin_route_prefix', 'admin'),
