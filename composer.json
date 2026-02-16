@@ -15,8 +15,7 @@
         "laravolt/avatar": "^6.2",
         "livewire/flux": "^2.2",
         "livewire/livewire": "^4.0",
-        "livewire/volt": "^1.10",
-        "mhmiton/laravel-modules-livewire": "^1.6",
+        "mhmiton/laravel-modules-livewire": "^6.1",
         "nwidart/laravel-modules": "^12.0",
         "spatie/laravel-permission": "^6.20",
         "venturecraft/revisionable": "1.*"
