@@ -2,6 +2,7 @@
 
 namespace Modules\Core\View\Components\Layouts\App;
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\Component;
 use Illuminate\View\View;
 
@@ -17,7 +18,7 @@ class UserMenu extends Component
      */
     public function __construct()
     {
-        $this->user = auth()->user();
+        $this->user = Auth::user();
     }
 
     /**

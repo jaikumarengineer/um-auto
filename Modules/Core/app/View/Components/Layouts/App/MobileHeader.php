@@ -4,6 +4,7 @@ namespace Modules\Core\View\Components\Layouts\App;
 
 use Illuminate\View\Component;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Auth;
 
 class MobileHeader extends Component
 {
@@ -17,7 +18,7 @@ class MobileHeader extends Component
      */
     public function __construct()
     {
-        $this->user = auth()->user();
+        $this->user = Auth::user();
     }
 
     /**
