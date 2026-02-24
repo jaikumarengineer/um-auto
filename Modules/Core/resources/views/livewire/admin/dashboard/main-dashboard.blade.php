@@ -3,6 +3,7 @@
 use Livewire\Volt\Component;
 
 new class extends Component {
+
     public $title = 'Dashboard';
 
     public function mount()
@@ -11,6 +12,7 @@ new class extends Component {
         //     'title' => __('Dashboard'),
         // ]);
     }
+
 }; ?>
 
 <div>

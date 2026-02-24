@@ -1,5 +1,6 @@
 {
     "Core": true,
     "Theme": true,
-    "Plugin": true
+    "Plugin": true,
+    "User": true
 }

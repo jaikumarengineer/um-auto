@@ -1,7 +1,16 @@
 <flux:navlist variant="outline">
-    <flux:navlist.group :heading="__('Platform')" class="grid">
-        <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-            {{ __('Dashboard') }}
-        </flux:navlist.item>
-    </flux:navlist.group>
+    @foreach($navigationItems as $group)
+        <flux:navlist.group :heading="$group['heading']" class="grid">
+            @foreach($group['items'] as $item)
+                <flux:navlist.item
+                    :icon="$item['icon']"
+                    :href="route($item['route'])"
+                    :current="$item['active']"
+                    wire:navigate
+                >
+                    {{ $item['label'] }}
+                </flux:navlist.item>
+            @endforeach
+        </flux:navlist.group>
+    @endforeach
 </flux:navlist>

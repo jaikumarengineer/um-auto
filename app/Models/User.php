@@ -51,6 +51,7 @@ class User extends Authenticatable
         'locale',
         'is_active',
         'last_login_at',
+        'user_type',
     ];
 
     /**

@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Core\Http\Controllers\CoreController;
+use Modules\Core\Http\Middleware\AdminLayoutMiddleware;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('cores', CoreController::class)->names('core');
@@ -10,11 +11,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::group([
     'prefix' => config('theme.admin_route_prefix', 'admin'),
     'as' => 'admin::',
+    'middleware'=>[
+        AdminLayoutMiddleware::class,
+    ]
 ], function () {
 
     Route::middleware(['admin.redirect'])->group(function () {
 
+        Route::livewire('/', 'core::admin.auth.login')->name('main');
         Route::livewire('login', 'core::admin.auth.login')->name('login');
+
     });
 
 
