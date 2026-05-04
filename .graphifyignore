@@ -1,0 +1,10 @@
+# Laravel / PHP: keep the graph to first-party code (vendor alone can exceed HTML viz limits).
+vendor/
+public/vendor/
+public/build/
+storage/
+bootstrap/cache/
+graphify-out/
+
+# Optional large trees
+node_modules/

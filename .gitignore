@@ -1,9 +1,12 @@
+.DS_Store
 /.phpunit.cache
 /node_modules
 /public/build
 /public/hot
 /public/storage
 /storage/*.key
+# Graphify generated artifacts (local only)
+/graphify-out/
 /storage/pail
 /vendor
 .env
