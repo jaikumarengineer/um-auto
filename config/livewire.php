@@ -16,6 +16,7 @@ return [
     'component_locations' => [
         resource_path('views/components'),
         resource_path('views/livewire'),
+        base_path('Modules/Core/resources/views/livewire'),
     ],
 
     /*
@@ -118,10 +119,7 @@ return [
 
     'view_path' => [
         resource_path('views/livewire'),
-        // module_path('base', 'resources/views/livewire'),
-        // module_path('core', 'resources/views/livewire'),
-        // module_path('plugin', 'resources/views/livewire'),
-        // module_path('theme', 'resources/views/livewire'),
+        base_path('Modules/Core/resources/views/livewire'),
     ],
 
     /*
