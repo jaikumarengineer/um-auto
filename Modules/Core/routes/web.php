@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\EditorUploadController;
 use Illuminate\Support\Facades\Route;
 use Modules\Core\Http\Controllers\CoreController;
 use Modules\Core\Http\Middleware\AdminLayoutMiddleware;
@@ -30,6 +31,9 @@ Route::group([
         // Dashboard
         Route::livewire('dashboard', 'admin.dashboard.main-dashboard')->name('dashboard');
 
+        // CKEditor 4 image upload
+        Route::post('editor/upload', EditorUploadController::class)->name('editor.upload');
+
         // Users
         Route::group([
             'prefix' => 'users',
@@ -52,6 +56,7 @@ Route::group([
 
             Route::livewire('general', 'admin.settings.general-setting-page')->name('general');
             Route::livewire('website', 'admin.settings.website-setting-page')->name('website');
+            Route::livewire('mail', 'admin.settings.mail-setting-page')->name('mail');
             Route::group([
                 'prefix' => 'scripts',
                 'as' => 'scripts.',
@@ -60,6 +65,14 @@ Route::group([
                 Route::livewire('third-party', 'admin.settings.scripts.third-party-script-page')->name('third-party');
                 Route::livewire('custom', 'admin.settings.scripts.custom-script-page')->name('custom');
             });
+        });
+
+        // UI components demo
+        Route::group([
+            'prefix' => 'components',
+            'as' => 'components.',
+        ], function () {
+            Route::livewire('forms', 'admin.components.forms-demo-page')->name('forms');
         });
 
         // Documentation

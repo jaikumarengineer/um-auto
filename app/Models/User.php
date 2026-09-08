@@ -49,6 +49,7 @@ class User extends Authenticatable
         'gender',
         'timezone',
         'locale',
+        'ui_preferences',
         'is_active',
         'last_login_at',
         'user_type',
@@ -74,7 +75,22 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'ui_preferences' => 'array',
+            'is_active' => 'boolean',
+            'last_login_at' => 'datetime',
         ];
+    }
+
+    public function uiPreference(string $key, mixed $default = null): mixed
+    {
+        return data_get($this->ui_preferences ?? [], $key, $default);
+    }
+
+    public function setUiPreferences(array $preferences): void
+    {
+        $this->forceFill([
+            'ui_preferences' => array_merge($this->ui_preferences ?? [], $preferences),
+        ])->save();
     }
 
     protected $appends = [

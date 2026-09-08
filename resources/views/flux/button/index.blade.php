@@ -23,10 +23,10 @@ $iconLeading = $icon ??= $iconLeading;
 // Button should be a square if it has no text contents...
 $square ??= $slot->isEmpty();
 
-// Size-up icons in square/icon-only buttons... (xs buttons just get micro size/style...)
+    // Size-up icons in square/icon-only buttons... (xs buttons just get micro size/style...)
 $iconVariant ??= ($size === 'xs')
     ? ($square ? 'micro' : 'micro')
-    : ($square ? 'mini' : 'micro');
+    : ($square ? ($size === 'lg' ? 'mini' : 'mini') : 'micro');
 
 $iconTrailingVariant ??= $attributes->pluck('icon-trailing:variant', $iconVariant);
 
@@ -61,18 +61,27 @@ if ($loading && $type !== 'submit' && ! $isJsMethod) {
 $classes = Flux::classes()
     ->add('relative items-center font-medium justify-center gap-2 whitespace-nowrap')
     ->add('disabled:opacity-75 dark:disabled:opacity-75 disabled:cursor-default disabled:pointer-events-none')
-    ->add(match ($size) { // Size...    
+    ->add(match ($size) { // Size...
+        'lg' => 'h-12 text-base rounded-xl' . ' ' . (
+            $square
+                ? 'w-12'
+                : ($iconLeading && $iconLeading !== '' ? 'ps-4' : 'ps-5') . ' ' . ($iconTrailing && $iconTrailing !== '' ? 'pe-4' : 'pe-5')
+        ),
         'base' => 'h-10 text-sm rounded-lg' . ' ' . (
-            $square 
-                ? 'w-10' 
+            $square
+                ? 'w-10'
                 // If we have an icon, we want to reduce the padding on the side that has the icon...
                 : ($iconLeading && $iconLeading !== '' ? 'ps-3' : 'ps-4') . ' ' . ($iconTrailing && $iconTrailing !== '' ? 'pe-3' : 'pe-4')
         ),
         'sm' => 'h-8 text-sm rounded-md' . ' ' . ($square ? 'w-8' : 'px-3'),
         'xs' => 'h-6 text-xs rounded-md' . ' ' . ($square ? 'w-6' : 'px-2'),
+        default => 'h-10 text-sm rounded-lg' . ' ' . ($square ? 'w-10' : 'px-4'),
     })
     ->add('inline-flex') // Buttons are inline by default but links are blocks, so inline-flex is needed here to ensure link-buttons are displayed the same as buttons...
     ->add($inset ? match ($size) { // Inset...
+        'lg' => $square
+            ? Flux::applyInset($inset, top: '-mt-3', right: '-me-3', bottom: '-mb-3', left: '-ms-3')
+            : Flux::applyInset($inset, top: '-mt-3', right: '-me-5', bottom: '-mb-3', left: '-ms-5'),
         'base' => $square
             ? Flux::applyInset($inset, top: '-mt-2.5', right: '-me-2.5', bottom: '-mb-2.5', left: '-ms-2.5')
             : Flux::applyInset($inset, top: '-mt-2.5', right: '-me-4', bottom: '-mb-3', left: '-ms-4'),
@@ -82,6 +91,9 @@ $classes = Flux::classes()
         'xs' => $square
             ? Flux::applyInset($inset, top: '-mt-1', right: '-me-1', bottom: '-mb-1', left: '-ms-1')
             : Flux::applyInset($inset, top: '-mt-1', right: '-me-2', bottom: '-mb-1', left: '-ms-2'),
+        default => $square
+            ? Flux::applyInset($inset, top: '-mt-2.5', right: '-me-2.5', bottom: '-mb-2.5', left: '-ms-2.5')
+            : Flux::applyInset($inset, top: '-mt-2.5', right: '-me-4', bottom: '-mb-3', left: '-ms-4'),
     } : '')
     ->add(match ($variant) { // Background color...
         'primary' => 'bg-[var(--color-accent)] hover:bg-[color-mix(in_oklab,_var(--color-accent),_transparent_10%)]',
@@ -108,9 +120,11 @@ $classes = Flux::classes()
         'primary' => 'shadow-[inset_0px_1px_--theme(--color-white/.2)]',
         'danger' => 'shadow-[inset_0px_1px_var(--color-red-500),inset_0px_2px_--theme(--color-white/.15)] dark:shadow-none',
         'outline' => match ($size) {
+            'lg' => 'shadow-xs',
             'base' => 'shadow-xs',
             'sm' => 'shadow-xs',
             'xs' => 'shadow-none',
+            default => 'shadow-xs',
         },
         default => '',
     })

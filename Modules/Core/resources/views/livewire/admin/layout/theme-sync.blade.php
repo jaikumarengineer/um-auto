@@ -1,0 +1,127 @@
+<?php
+
+use Livewire\Volt\Component;
+
+new class extends Component {
+    public string $themePreset = 'ocean';
+
+    public string $adminLayout = 'floating';
+
+    public string $uiRadius = 'xl';
+
+    public bool $navbarFixed = true;
+
+    public bool $sidebarCollapsed = false;
+
+    public function mount(): void
+    {
+        $prefs = auth()->user()?->ui_preferences ?? [];
+
+        $this->themePreset = $prefs['theme_preset'] ?? 'ocean';
+        $this->adminLayout = $prefs['admin_layout'] ?? 'floating';
+        $this->uiRadius = $prefs['ui_radius'] ?? 'xl';
+        $this->navbarFixed = array_key_exists('navbar_fixed', $prefs)
+            ? (bool) $prefs['navbar_fixed']
+            : true;
+        $this->sidebarCollapsed = (bool) ($prefs['sidebar_collapsed'] ?? false);
+
+        $this->applyToDocument();
+    }
+
+    public function setPreset(string $preset): void
+    {
+        if (! in_array($preset, ['ocean', 'forest', 'slate', 'rosewood', 'midnight'], true)) {
+            return;
+        }
+
+        $this->themePreset = $preset;
+        $this->persist();
+    }
+
+    public function setLayout(string $layout): void
+    {
+        if (! in_array($layout, ['floating', 'attached'], true)) {
+            return;
+        }
+
+        $this->adminLayout = $layout;
+        $this->persist();
+    }
+
+    public function setUiRadius(string $radius): void
+    {
+        if (! in_array($radius, ['none', 'xs', 'sm', 'md', 'xl'], true)) {
+            return;
+        }
+
+        $this->uiRadius = $radius;
+        $this->persist();
+    }
+
+    public function setNavbarFixed(bool $fixed): void
+    {
+        $this->navbarFixed = $fixed;
+        $this->persist();
+    }
+
+    public function toggleSidebar(): void
+    {
+        $this->sidebarCollapsed = ! $this->sidebarCollapsed;
+        $this->persist();
+    }
+
+    public function setSidebarCollapsed(bool $collapsed): void
+    {
+        $this->sidebarCollapsed = $collapsed;
+        $this->persist();
+    }
+
+    protected function persist(): void
+    {
+        auth()->user()?->setUiPreferences([
+            'theme_preset' => $this->themePreset,
+            'admin_layout' => $this->adminLayout,
+            'ui_radius' => $this->uiRadius,
+            'navbar_fixed' => $this->navbarFixed,
+            'sidebar_collapsed' => $this->sidebarCollapsed,
+        ]);
+
+        $this->applyToDocument();
+    }
+
+    protected function applyToDocument(): void
+    {
+        $payload = [
+            'preset' => $this->themePreset,
+            'layout' => $this->adminLayout,
+            'uiRadius' => $this->uiRadius,
+            'navbarFixed' => $this->navbarFixed,
+            'sidebarCollapsed' => $this->sidebarCollapsed,
+        ];
+
+        $json = json_encode($payload);
+
+        $this->js(<<<JS
+            window.AdminTheme?.hydrate({$json});
+        JS);
+    }
+}; ?>
+
+<div class="contents">
+    {{-- Bridge Livewire state into Alpine for the offcanvas UI --}}
+    <div
+        x-data
+        x-init="
+            $store.adminTheme.hydrateFromLivewire({
+                preset: @js($themePreset),
+                layout: @js($adminLayout),
+                uiRadius: @js($uiRadius),
+                navbarFixed: @js($navbarFixed),
+                sidebarCollapsed: @js($sidebarCollapsed),
+            });
+            window.__adminThemeLivewire = $wire;
+        "
+        wire:ignore.self
+        class="hidden"
+    ></div>
+</div>

@@ -1,16 +1,3 @@
-<flux:navlist variant="outline">
-    @foreach($navigationItems as $group)
-        <flux:navlist.group :heading="$group['heading']" class="grid">
-            @foreach($group['items'] as $item)
-                <flux:navlist.item
-                    :icon="$item['icon']"
-                    :href="route($item['route'])"
-                    :current="$item['active']"
-                    wire:navigate
-                >
-                    {{ $item['label'] }}
-                </flux:navlist.item>
-            @endforeach
-        </flux:navlist.group>
-    @endforeach
-</flux:navlist>
+<flux:sidebar.nav class="admin-nav">
+    <x-core::layouts.app.nav-nodes :nodes="$navigationItems" />
+</flux:sidebar.nav>

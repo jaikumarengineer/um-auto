@@ -3,15 +3,67 @@
 use App\Models\User;
 use Illuminate\Support\Str;
 
-if (!function_exists('generateUserName')) {
-    function generateUserName($name):string
+if (! function_exists('generateUserName')) {
+    function generateUserName($name): string
     {
         $baseUsername = Str::slug($name); // e.g., "John Doe" -> "john-doe"
-        do
-        {
-            $username = $baseUsername . rand(10000000, 99999999);
-        }
-        while (User::where('username', $username)->exists());
+        do {
+            $username = $baseUsername.rand(10000000, 99999999);
+        } while (User::where('username', $username)->exists());
+
         return $username;
+    }
+}
+
+if (! function_exists('update_env')) {
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    function update_env(array $data = []): void
+    {
+        $path = base_path('.env');
+
+        if (! file_exists($path)) {
+            return;
+        }
+
+        $contents = file_get_contents($path);
+
+        foreach ($data as $key => $value) {
+            $value = Str::replace(' ', '', (string) $value);
+            $key = (string) $key;
+
+            if (preg_match("/^{$key}=.*/m", $contents)) {
+                $contents = preg_replace(
+                    "/^{$key}=.*/m",
+                    $key.'='.$value,
+                    $contents
+                );
+            } else {
+                $contents .= PHP_EOL.$key.'='.$value;
+            }
+        }
+
+        file_put_contents($path, $contents);
+    }
+}
+
+if (! function_exists('setting_json_decode')) {
+    /**
+     * @return array<int|string, mixed>
+     */
+    function setting_json_decode(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && $value !== '') {
+            $decoded = json_decode($value, true);
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return [];
     }
 }

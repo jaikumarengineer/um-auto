@@ -8,93 +8,116 @@ use Illuminate\View\View;
 class Navigation extends Component
 {
     /**
-     * Navigation items for the sidebar.
+     * Navigation tree for the sidebar (items + expandable groups).
      */
     public array $navigationItems = [];
 
-    /**
-     * Create a new component instance.
-     */
     public function __construct()
     {
         $this->navigationItems = $this->getNavigationItems();
     }
 
-    /**
-     * Get the navigation items grouped by section.
-     * Each group has a 'heading' and 'items' array.
-     */
     protected function getNavigationItems(): array
     {
         return [
             [
-                'heading' => __('Platform'),
-                'items' => [
-                    [
-                        'label'  => __('Dashboard'),
-                        'route'  => 'admin::dashboard',
-                        'icon'   => 'home',
-                        'active' => request()->routeIs('admin::dashboard'),
-                    ],
-                ],
+                'type' => 'item',
+                'label' => __('Dashboard'),
+                'route' => 'admin::dashboard',
+                'icon' => 'home',
+                'active' => request()->routeIs('admin::dashboard'),
             ],
             [
-                'heading' => __('Management'),
-                'items' => [
-                    [
-                        'label'  => __('Users'),
-                        'route'  => 'admin::users.list',
-                        'icon'   => 'users',
-                        'active' => request()->routeIs('admin::users.*'),
-                    ],
-                ],
+                'type' => 'item',
+                'label' => __('Users'),
+                'route' => 'admin::users.list',
+                'icon' => 'users',
+                'active' => request()->routeIs('admin::users.*'),
             ],
             [
+                'type' => 'group',
                 'heading' => __('Settings'),
-                'items' => [
+                'icon' => 'cog-6-tooth',
+                'expandable' => true,
+                'expanded' => request()->routeIs('admin::settings.*') || request()->routeIs('admin::profile'),
+                'children' => [
                     [
-                        'label'  => __('General'),
-                        'route'  => 'admin::settings.general',
-                        'icon'   => 'cog-6-tooth',
+                        'label' => __('General'),
+                        'route' => 'admin::settings.general',
+                        'icon' => 'adjustments-horizontal',
                         'active' => request()->routeIs('admin::settings.general'),
                     ],
                     [
-                        'label'  => __('Website'),
-                        'route'  => 'admin::settings.website',
-                        'icon'   => 'globe-alt',
+                        'label' => __('Website'),
+                        'route' => 'admin::settings.website',
+                        'icon' => 'globe-alt',
                         'active' => request()->routeIs('admin::settings.website'),
                     ],
                     [
-                        'label'  => __('Scripts'),
-                        'route'  => 'admin::settings.scripts.third-party',
-                        'icon'   => 'code-bracket',
-                        'active' => request()->routeIs('admin::settings.scripts.*'),
+                        'label' => __('Profile'),
+                        'route' => 'admin::profile',
+                        'icon' => 'user-circle',
+                        'active' => request()->routeIs('admin::profile'),
+                    ],
+                    [
+                        'label' => __('Mail'),
+                        'route' => 'admin::settings.mail',
+                        'icon' => 'envelope',
+                        'active' => request()->routeIs('admin::settings.mail'),
+                    ],
+                    [
+                        'type' => 'group',
+                        'heading' => __('Scripts'),
+                        'icon' => 'code-bracket',
+                        'expandable' => true,
+                        'expanded' => request()->routeIs('admin::settings.scripts.*'),
+                        'children' => [
+                            [
+                                'label' => __('Third-party'),
+                                'route' => 'admin::settings.scripts.third-party',
+                                'icon' => 'puzzle-piece',
+                                'active' => request()->routeIs('admin::settings.scripts.third-party'),
+                            ],
+                            [
+                                'label' => __('Custom'),
+                                'route' => 'admin::settings.scripts.custom',
+                                'icon' => 'command-line',
+                                'active' => request()->routeIs('admin::settings.scripts.custom'),
+                            ],
+                        ],
                     ],
                 ],
             ],
             [
+                'type' => 'group',
                 'heading' => __('Documentation'),
-                'items' => [
+                'icon' => 'book-open',
+                'expandable' => true,
+                'expanded' => request()->routeIs('admin::documentation.*') || request()->routeIs('admin::components.*'),
+                'children' => [
                     [
-                        'label'  => __('Help'),
-                        'route'  => 'admin::documentation.help',
-                        'icon'   => 'question-mark-circle',
+                        'label' => __('Help'),
+                        'route' => 'admin::documentation.help',
+                        'icon' => 'question-mark-circle',
                         'active' => request()->routeIs('admin::documentation.help'),
                     ],
                     [
-                        'label'  => __('Changelog'),
-                        'route'  => 'admin::documentation.changelog',
-                        'icon'   => 'document-text',
+                        'label' => __('Changelog'),
+                        'route' => 'admin::documentation.changelog',
+                        'icon' => 'document-text',
                         'active' => request()->routeIs('admin::documentation.changelog'),
+                    ],
+                    [
+                        'label' => __('Form components'),
+                        'route' => 'admin::components.forms',
+                        'icon' => 'squares-2x2',
+                        'active' => request()->routeIs('admin::components.forms'),
                     ],
                 ],
             ],
         ];
     }
 
-    /**
-     * Get the view / contents that represent the component.
-     */
     public function render(): View
     {
         return view('core::components.layouts.app.navigation');
