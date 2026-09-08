@@ -204,3 +204,57 @@ document.addEventListener('livewire:navigated', () => {
 });
 
 import './admin-forms.js';
+import Swal from 'sweetalert2';
+import 'sweetalert2/dist/sweetalert2.min.css';
+
+window.Swal = Swal;
+
+window.AdminNotify = {
+    toast(message, type = 'success', title = null) {
+        const icon = ['success', 'error', 'warning', 'info', 'question'].includes(type) ? type : 'info';
+
+        return Swal.fire({
+            toast: true,
+            position: 'bottom-end',
+            icon,
+            title: title || message,
+            text: title ? message : undefined,
+            showConfirmButton: false,
+            timer: 3200,
+            timerProgressBar: true,
+            customClass: {
+                popup: 'admin-swal-toast',
+            },
+        });
+    },
+
+    alert(message, type = 'success', title = null) {
+        const icon = ['success', 'error', 'warning', 'info', 'question'].includes(type) ? type : 'info';
+
+        return Swal.fire({
+            icon,
+            title: title || (icon === 'success' ? 'Success' : icon === 'error' ? 'Error' : 'Notice'),
+            text: message,
+            confirmButtonText: 'OK',
+            buttonsStyling: false,
+            customClass: {
+                confirmButton: 'admin-swal-confirm',
+                popup: 'admin-swal-popup',
+            },
+        });
+    },
+};
+
+document.addEventListener('livewire:init', () => {
+    Livewire.on('toast', (...args) => {
+        const payload = args[0] ?? {};
+        const detail = Array.isArray(payload) ? (payload[0] ?? {}) : payload;
+        window.AdminNotify.toast(detail.message ?? 'Done', detail.type ?? 'success', detail.title ?? null);
+    });
+
+    Livewire.on('swal', (...args) => {
+        const payload = args[0] ?? {};
+        const detail = Array.isArray(payload) ? (payload[0] ?? {}) : payload;
+        window.AdminNotify.alert(detail.message ?? '', detail.type ?? 'success', detail.title ?? null);
+    });
+});

@@ -57,6 +57,8 @@ Route::group([
             Route::livewire('general', 'admin.settings.general-setting-page')->name('general');
             Route::livewire('website', 'admin.settings.website-setting-page')->name('website');
             Route::livewire('mail', 'admin.settings.mail-setting-page')->name('mail');
+            Route::livewire('logs', 'admin.settings.server-log-page')->name('logs');
+            Route::livewire('server-info', 'admin.settings.server-info-page')->name('server-info');
             Route::group([
                 'prefix' => 'scripts',
                 'as' => 'scripts.',

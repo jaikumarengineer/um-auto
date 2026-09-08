@@ -32,6 +32,7 @@
         "laravel-vite-plugin": "^1.0",
         "multiple-select": "^2.4.0",
         "select2": "^4.1.0",
+        "sweetalert2": "^11.26.25",
         "tailwindcss": "^4.0.7",
         "vite": "^6.0"
     },

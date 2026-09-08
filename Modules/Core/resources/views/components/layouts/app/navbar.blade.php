@@ -136,8 +136,8 @@
                 <p class="truncate text-xs text-zinc-500">{{ auth()->user()->email }}</p>
             </div>
             <flux:menu.separator />
-            <flux:menu.item :href="route('admin::profile')" icon="cog-6-tooth" icon:variant="outline" wire:navigate>
-                {{ __('Settings') }}
+            <flux:menu.item :href="route('admin::profile')" icon="user-circle" icon:variant="outline" wire:navigate>
+                {{ __('Profile') }}
             </flux:menu.item>
             <flux:menu.separator />
             <form method="POST" action="{{ route('logout') }}" class="w-full">

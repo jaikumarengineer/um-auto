@@ -39,7 +39,7 @@ class Navigation extends Component
                 'heading' => __('Settings'),
                 'icon' => 'cog-6-tooth',
                 'expandable' => true,
-                'expanded' => request()->routeIs('admin::settings.*') || request()->routeIs('admin::profile'),
+                'expanded' => request()->routeIs('admin::settings.*'),
                 'children' => [
                     [
                         'label' => __('General'),
@@ -54,16 +54,22 @@ class Navigation extends Component
                         'active' => request()->routeIs('admin::settings.website'),
                     ],
                     [
-                        'label' => __('Profile'),
-                        'route' => 'admin::profile',
-                        'icon' => 'user-circle',
-                        'active' => request()->routeIs('admin::profile'),
-                    ],
-                    [
                         'label' => __('Mail'),
                         'route' => 'admin::settings.mail',
                         'icon' => 'envelope',
                         'active' => request()->routeIs('admin::settings.mail'),
+                    ],
+                    [
+                        'label' => __('Server Logs'),
+                        'route' => 'admin::settings.logs',
+                        'icon' => 'document-magnifying-glass',
+                        'active' => request()->routeIs('admin::settings.logs'),
+                    ],
+                    [
+                        'label' => __('Server Info'),
+                        'route' => 'admin::settings.server-info',
+                        'icon' => 'server-stack',
+                        'active' => request()->routeIs('admin::settings.server-info'),
                     ],
                     [
                         'type' => 'group',

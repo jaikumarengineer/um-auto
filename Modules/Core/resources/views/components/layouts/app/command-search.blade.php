@@ -65,11 +65,11 @@
             'action' => 'theme',
         ],
         [
-            'label' => __('Account settings'),
-            'group' => __('Settings'),
-            'icon' => 'cog-6-tooth',
+            'label' => __('My Profile'),
+            'group' => __('Account'),
+            'icon' => 'user-circle',
             'href' => route('admin::profile'),
-            'keywords' => 'account profile settings',
+            'keywords' => 'account profile password avatar',
             'action' => null,
         ],
         [

@@ -27,21 +27,17 @@ new #[Layout('core::layouts.app')] class extends Component {
             'custom_js' => $this->custom_js,
         ], 'scripts_custom');
 
-        session()->flash('success', __('Custom scripts saved.'));
+        $this->dispatch('toast', message: __('Custom scripts saved.'), type: 'success');
     }
 }; ?>
 
-<div>
-    <div class="mb-6">
+<div class="space-y-6">
+    <div>
         <flux:heading size="xl">{{ __('Custom Scripts') }}</flux:heading>
         <flux:subheading>{{ __('Site-wide custom CSS and JavaScript.') }}</flux:subheading>
     </div>
 
-    @if (session('success'))
-        <flux:callout variant="success" icon="check-circle" class="mb-4">{{ session('success') }}</flux:callout>
-    @endif
-
-    <form wire:submit="save" class="max-w-4xl space-y-6">
+    <form wire:submit="save" class="w-full space-y-6">
         <div class="admin-card overflow-hidden p-6">
             <x-core::forms.codemirror wire:model="custom_css" mode="css" :label="__('Custom CSS')" />
         </div>

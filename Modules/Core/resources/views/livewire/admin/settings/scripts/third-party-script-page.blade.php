@@ -27,21 +27,17 @@ new #[Layout('core::layouts.app')] class extends Component {
             'body_scripts' => $this->body_scripts,
         ], 'scripts_third_party');
 
-        session()->flash('success', __('Third-party scripts saved.'));
+        $this->dispatch('toast', message: __('Third-party scripts saved.'), type: 'success');
     }
 }; ?>
 
-<div>
-    <div class="mb-6">
+<div class="space-y-6">
+    <div>
         <flux:heading size="xl">{{ __('Third-party Scripts') }}</flux:heading>
         <flux:subheading>{{ __('Inject analytics and widgets into head/body.') }}</flux:subheading>
     </div>
 
-    @if (session('success'))
-        <flux:callout variant="success" icon="check-circle" class="mb-4">{{ session('success') }}</flux:callout>
-    @endif
-
-    <form wire:submit="save" class="max-w-4xl space-y-6">
+    <form wire:submit="save" class="w-full space-y-6">
         <div class="admin-card overflow-hidden p-6">
             <x-core::forms.codemirror wire:model="head_scripts" mode="html" :label="__('Head scripts')" :description="__('Rendered before </head>.')" />
         </div>

@@ -44,6 +44,7 @@
                     placeholder: @js($placeholder),
                     allowClear: @js($allowClear),
                     multiple: @js($multiple),
+                    closeOnSelect: ! @js($multiple),
                     data: @js($normalized),
                     dropdownParent: $(this.$el),
                     selectionCssClass: 'admin-select2-selection',

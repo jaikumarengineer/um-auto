@@ -29,7 +29,7 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function save(): void
     {
-        session()->flash('success', __('Demo form values captured in Livewire state.'));
+        $this->dispatch('toast', message: __('Demo form values captured in Livewire state.'), type: 'success');
     }
 }; ?>
 
@@ -67,10 +67,6 @@ new #[Layout('core::layouts.app')] class extends Component {
         <flux:heading size="xl">{{ __('Form components') }}</flux:heading>
         <flux:subheading>{{ __('Reusable Alpine-powered inputs styled for the admin shell.') }}</flux:subheading>
     </div>
-
-    @if (session('success'))
-        <flux:callout variant="success" icon="check-circle">{{ session('success') }}</flux:callout>
-    @endif
 
     <form wire:submit="save" class="grid gap-6 xl:grid-cols-2">
         <div class="admin-card space-y-5 p-6">

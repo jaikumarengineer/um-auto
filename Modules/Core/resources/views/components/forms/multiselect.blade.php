@@ -51,6 +51,9 @@
                     filterPlaceholder: @js($filterPlaceholder),
                     width: '100%',
                     dropWidth: '100%',
+                    maxHeight: 280,
+                    minimumCountSelected: 2,
+                    ellipsis: false,
                     onClose: () => {
                         const selected = this.$select.multipleSelect('getSelects') || [];
                         @if ($name)

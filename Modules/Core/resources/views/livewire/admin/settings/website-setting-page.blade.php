@@ -58,29 +58,31 @@ new #[Layout('core::layouts.app')] class extends Component {
             'favicon_path' => $this->favicon_path,
         ], 'website');
 
-        session()->flash('success', __('Website settings saved.'));
+        $this->dispatch('toast', message: __('Website settings saved.'), type: 'success');
     }
 }; ?>
 
-<div>
-    <div class="mb-6">
+<div class="space-y-6">
+    <div>
         <flux:heading size="xl">{{ __('Website Settings') }}</flux:heading>
         <flux:subheading>{{ __('Branding, titles, and public meta.') }}</flux:subheading>
     </div>
 
-    @if (session('success'))
-        <flux:callout variant="success" icon="check-circle" class="mb-4">{{ session('success') }}</flux:callout>
-    @endif
-
-    <form wire:submit="save" class="max-w-2xl space-y-6">
+    <form wire:submit="save" class="w-full space-y-6">
         <div class="admin-card overflow-hidden">
             <div class="border-b border-zinc-200 px-6 py-4 dark:border-zinc-700">
                 <p class="text-sm font-semibold">{{ __('Identity') }}</p>
             </div>
-            <div class="grid gap-5 px-6 py-6">
-                <flux:input wire:model="site_title" :label="__('Site title')" required />
-                <flux:input wire:model="site_tagline" :label="__('Tagline')" />
-                <flux:textarea wire:model="meta_description" :label="__('Meta description')" rows="3" />
+            <div class="grid gap-5 px-6 py-6 md:grid-cols-2">
+                <div>
+                    <flux:input wire:model="site_title" :label="__('Site title')" required />
+                </div>
+                <div>
+                    <flux:input wire:model="site_tagline" :label="__('Tagline')" />
+                </div>
+                <div class="md:col-span-2">
+                    <flux:textarea wire:model="meta_description" :label="__('Meta description')" rows="3" />
+                </div>
             </div>
         </div>
 
