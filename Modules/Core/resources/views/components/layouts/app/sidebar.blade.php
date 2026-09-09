@@ -62,10 +62,55 @@
 
                 <flux:spacer />
 
-                <div class="admin-sidebar-footer">
-                    <p class="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                        {{ __('Hello, :name. Your workspace is ready.', ['name' => auth()->user()->name]) }}
-                    </p>
+                <div class="admin-sidebar-footer flex items-center justify-between gap-1">
+                    <flux:tooltip :content="__('Help')" position="top">
+                        <a
+                            href="{{ route('admin::documentation.help') }}"
+                            wire:navigate
+                            class="admin-icon-btn admin-sidebar-footer-btn inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white"
+                            aria-label="{{ __('Help') }}"
+                        >
+                            <flux:icon.question-mark-circle variant="outline" class="size-4 stroke-[1.5]" />
+                        </a>
+                    </flux:tooltip>
+
+                    <flux:tooltip :content="__('Changelog')" position="top">
+                        <a
+                            href="{{ route('admin::documentation.changelog') }}"
+                            wire:navigate
+                            class="admin-icon-btn admin-sidebar-footer-btn inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white"
+                            aria-label="{{ __('Changelog') }}"
+                        >
+                            <flux:icon.document-text variant="outline" class="size-4 stroke-[1.5]" />
+                        </a>
+                    </flux:tooltip>
+
+                    <flux:tooltip :content="__('Form components')" position="top">
+                        <a
+                            href="{{ route('admin::components.forms') }}"
+                            wire:navigate
+                            class="admin-icon-btn admin-sidebar-footer-btn inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white"
+                            aria-label="{{ __('Form components') }}"
+                        >
+                            <flux:icon.squares-2x2 variant="outline" class="size-4 stroke-[1.5]" />
+                        </a>
+                    </flux:tooltip>
+
+                    <flux:tooltip :content="__('Credits')" position="top">
+                        <a
+                            href="https://github.com/Jaikumar0101/StarterKitMaryUi"
+                            target="_blank"
+                            rel="noopener"
+                            class="admin-icon-btn admin-sidebar-footer-btn inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white"
+                            aria-label="{{ __('Credits') }}"
+                        >
+                            <flux:icon.heart variant="outline" class="size-4 stroke-[1.5]" />
+                        </a>
+                    </flux:tooltip>
+
+                    <span class="admin-sidebar-footer-version shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold tracking-wide">
+                        v1.0
+                    </span>
                 </div>
             </flux:sidebar>
 

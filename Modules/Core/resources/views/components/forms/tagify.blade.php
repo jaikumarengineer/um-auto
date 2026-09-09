@@ -22,6 +22,9 @@
         x-data="{
             tagify: null,
             init() {
+                window.onAdminFormsReady(() => this.setup());
+            },
+            setup() {
                 const api = window.AdminForms;
                 if (! api) return;
                 this.tagify = new api.Tagify(this.$refs.input, {

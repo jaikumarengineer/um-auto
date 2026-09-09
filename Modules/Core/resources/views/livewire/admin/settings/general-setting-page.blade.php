@@ -139,6 +139,16 @@ new #[Layout('core::layouts.app')] class extends Component {
         'other-tab' => __('Other'),
     ];
 
+    $tabIcons = [
+        'main-tab' => 'document-text',
+        'logo-tab' => 'photo',
+        'company-tab' => 'building-office',
+        'social-tab' => 'share',
+        'footer-tab' => 'bars-3-bottom-left',
+        'backend-tab' => 'server-stack',
+        'other-tab' => 'adjustments-horizontal',
+    ];
+
     $editorOptions = [
         'ck-editor-4' => 'CK Editor 4',
         'ck-editor-5' => 'CK Editor 5',
@@ -163,20 +173,24 @@ new #[Layout('core::layouts.app')] class extends Component {
     </div>
 
     <form wire:submit="save" class="admin-card admin-settings-tabs overflow-hidden">
-        <div class="flex gap-1 overflow-x-auto border-b border-zinc-200 bg-[var(--admin-surface-muted)] px-3 py-2 dark:border-zinc-700">
-            @foreach ($tabs as $tab => $label)
-                <button
-                    type="button"
-                    wire:click="$set('selectedTab', '{{ $tab }}')"
-                    @class([
-                        'shrink-0 rounded-lg px-3.5 py-2 text-sm font-medium transition whitespace-nowrap',
-                        'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white' => $selectedTab === $tab,
-                        'text-zinc-600 hover:bg-white/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/70 dark:hover:text-white' => $selectedTab !== $tab,
-                    ])
-                >
-                    {{ $label }}
-                </button>
-            @endforeach
+        <div class="border-b border-zinc-200 bg-[var(--admin-surface-muted)] px-5 py-4 sm:px-6 dark:border-zinc-700">
+            <div class="overflow-x-auto">
+                <div class="admin-tabs-boxed w-max">
+                    @foreach ($tabs as $tab => $label)
+                        <button
+                            type="button"
+                            wire:click="$set('selectedTab', '{{ $tab }}')"
+                            @class([
+                                'admin-tabs-boxed-btn inline-flex items-center gap-2',
+                                'is-active' => $selectedTab === $tab,
+                            ])
+                        >
+                            <flux:icon :icon="$tabIcons[$tab] ?? 'squares-2x2'" variant="outline" class="size-4 shrink-0 stroke-[1.5]" />
+                            {{ $label }}
+                        </button>
+                    @endforeach
+                </div>
+            </div>
         </div>
 
         <div class="px-5 py-6 sm:px-6">
@@ -204,18 +218,14 @@ new #[Layout('core::layouts.app')] class extends Component {
                 </div>
 
                 <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
-                    <div class="grid grid-cols-1 items-start gap-4 md:grid-cols-5">
-                        <div class="md:col-span-3">
-                            <x-core::forms.filepond wire:model="request.meta_os_image" model="request.meta_os_image" :label="__('Meta OS Image')" :description="__('Recommended 1200 × 630')" />
-                        </div>
-                        <div class="flex min-h-28 items-center justify-center rounded-lg bg-[var(--admin-surface-muted)] p-3 md:col-span-2">
-                            @if (! empty($request['meta_os_image']) && is_string($request['meta_os_image']))
-                                <img src="{{ asset('storage/'.$request['meta_os_image']) }}" alt="" class="max-h-28 w-full object-contain" />
-                            @else
-                                <span class="text-xs text-zinc-400">{{ __('Preview') }}</span>
-                            @endif
-                        </div>
-                    </div>
+                    <x-core::forms.filepond
+                        wire:model="request.meta_os_image"
+                        model="request.meta_os_image"
+                        :label="__('Meta OS Image')"
+                        :description="__('Recommended 1200 × 630')"
+                        :preview="! empty($request['meta_os_image']) && is_string($request['meta_os_image']) ? asset('storage/'.$request['meta_os_image']) : null"
+                        max-height="8rem"
+                    />
                 </div>
             </div>
 
@@ -228,18 +238,14 @@ new #[Layout('core::layouts.app')] class extends Component {
                     'site_favicon' => __('Favicon'),
                 ] as $key => $label)
                     <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
-                        <div class="grid grid-cols-1 items-start gap-4 md:grid-cols-5">
-                            <div class="md:col-span-3">
-                                <x-core::forms.filepond wire:model="request.{{ $key }}" model="request.{{ $key }}" :label="$label" />
-                            </div>
-                            <div class="flex min-h-24 items-center justify-center rounded-lg bg-[var(--admin-surface-muted)] p-3 md:col-span-2">
-                                @if (! empty($request[$key]) && is_string($request[$key]))
-                                    <img src="{{ asset('storage/'.$request[$key]) }}" alt="" class="max-h-20 object-contain" />
-                                @else
-                                    <span class="text-xs text-zinc-400">{{ __('Preview') }}</span>
-                                @endif
-                            </div>
-                        </div>
+                        <x-core::forms.filepond
+                            wire:model="request.{{ $key }}"
+                            model="request.{{ $key }}"
+                            :label="$label"
+                            :preview="! empty($request[$key]) && is_string($request[$key]) ? asset('storage/'.$request[$key]) : null"
+                            :shape="$key === 'site_favicon' ? 'square' : 'rectangle'"
+                            max-height="6rem"
+                        />
                     </div>
                 @endforeach
             </div>
@@ -281,18 +287,13 @@ new #[Layout('core::layouts.app')] class extends Component {
             {{-- Footer --}}
             <div class="admin-tab-panel space-y-5" @if ($selectedTab !== 'footer-tab') hidden @endif>
                 <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
-                    <div class="grid grid-cols-1 items-start gap-4 md:grid-cols-5">
-                        <div class="md:col-span-3">
-                            <x-core::forms.filepond wire:model="request.footer_logo" model="request.footer_logo" :label="__('Footer Logo')" />
-                        </div>
-                        <div class="flex min-h-24 items-center justify-center rounded-lg bg-[var(--admin-surface-muted)] p-3 md:col-span-2">
-                            @if (! empty($request['footer_logo']) && is_string($request['footer_logo']))
-                                <img src="{{ asset('storage/'.$request['footer_logo']) }}" alt="" class="max-h-20 object-contain" />
-                            @else
-                                <span class="text-xs text-zinc-400">{{ __('Preview') }}</span>
-                            @endif
-                        </div>
-                    </div>
+                    <x-core::forms.filepond
+                        wire:model="request.footer_logo"
+                        model="request.footer_logo"
+                        :label="__('Footer Logo')"
+                        :preview="! empty($request['footer_logo']) && is_string($request['footer_logo']) ? asset('storage/'.$request['footer_logo']) : null"
+                        max-height="6rem"
+                    />
                 </div>
                 <flux:textarea wire:model="request.footer_description" :label="__('Footer Description')" rows="4" />
             </div>
@@ -300,18 +301,13 @@ new #[Layout('core::layouts.app')] class extends Component {
             {{-- Backend --}}
             <div class="admin-tab-panel" @if ($selectedTab !== 'backend-tab') hidden @endif>
                 <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
-                    <div class="grid grid-cols-1 items-start gap-4 md:grid-cols-5">
-                        <div class="md:col-span-3">
-                            <x-core::forms.filepond wire:model="request.admin_logo" model="request.admin_logo" :label="__('Admin Dashboard Logo')" />
-                        </div>
-                        <div class="flex min-h-24 items-center justify-center rounded-lg bg-[var(--admin-surface-muted)] p-3 md:col-span-2">
-                            @if (! empty($request['admin_logo']) && is_string($request['admin_logo']))
-                                <img src="{{ asset('storage/'.$request['admin_logo']) }}" alt="" class="max-h-20 object-contain" />
-                            @else
-                                <span class="text-xs text-zinc-400">{{ __('Preview') }}</span>
-                            @endif
-                        </div>
-                    </div>
+                    <x-core::forms.filepond
+                        wire:model="request.admin_logo"
+                        model="request.admin_logo"
+                        :label="__('Admin Dashboard Logo')"
+                        :preview="! empty($request['admin_logo']) && is_string($request['admin_logo']) ? asset('storage/'.$request['admin_logo']) : null"
+                        max-height="6rem"
+                    />
                 </div>
             </div>
 

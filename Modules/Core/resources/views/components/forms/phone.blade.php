@@ -22,6 +22,9 @@
         x-data="{
             iti: null,
             init() {
+                window.onAdminFormsReady(() => this.setup());
+            },
+            setup() {
                 const api = window.AdminForms;
                 if (! api) return;
                 this.iti = api.intlTelInput(this.$refs.input, {

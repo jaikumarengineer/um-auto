@@ -71,6 +71,44 @@ new #[Layout('core::layouts.app')] class extends Component {
             ],
         ];
 
+        // Sample time-series for the last 7 days (deterministic-ish, no extra tables required)
+        $days = collect(range(6, 0))->map(fn ($i) => now()->subDays($i));
+        $userGrowthChart = [
+            'labels' => $days->map(fn ($d) => $d->translatedFormat('D'))->all(),
+            'datasets' => [
+                [
+                    'label' => __('New users'),
+                    'data' => $days->map(
+                        fn ($d) => User::query()->whereDate('created_at', $d->toDateString())->count()
+                    )->all(),
+                ],
+            ],
+        ];
+
+        $weeklyActivityChart = [
+            'labels' => $days->map(fn ($d) => $d->translatedFormat('D'))->all(),
+            'datasets' => [
+                ['label' => __('Logins'), 'data' => [12, 19, 14, 22, 18, 9, 6]],
+                ['label' => __('Actions'), 'data' => [30, 42, 35, 50, 44, 20, 15]],
+            ],
+        ];
+
+        $inactiveUsers = max($totalUsers - $activeUsers, 0);
+        $nonAdminUsers = max($totalUsers - $adminUsers, 0);
+        $roleBreakdownChart = [
+            'labels' => [__('Admins'), __('Regular users')],
+            'datasets' => [
+                ['data' => [$adminUsers, $nonAdminUsers]],
+            ],
+        ];
+
+        $statusBreakdownChart = [
+            'labels' => [__('Active'), __('Inactive')],
+            'datasets' => [
+                ['data' => [$activeUsers, $inactiveUsers]],
+            ],
+        ];
+
         return compact(
             'totalUsers',
             'activeUsers',
@@ -82,6 +120,10 @@ new #[Layout('core::layouts.app')] class extends Component {
             'schedule',
             'activity',
             'stats',
+            'userGrowthChart',
+            'weeklyActivityChart',
+            'roleBreakdownChart',
+            'statusBreakdownChart',
         );
     }
 }; ?>
@@ -206,6 +248,43 @@ new #[Layout('core::layouts.app')] class extends Component {
             </div>
         @endforeach
     </section>
+
+    {{-- Charts --}}
+    <div class="grid gap-4 xl:grid-cols-3">
+        <section class="admin-card admin-fade-in admin-fade-in-delay-1 p-5 xl:col-span-2">
+            <div class="mb-3">
+                <flux:heading size="lg">{{ __('New users (7 days)') }}</flux:heading>
+                <flux:subheading>{{ __('Daily signups over the last week.') }}</flux:subheading>
+            </div>
+            <x-core::charts.chart type="line" :dataset="$userGrowthChart" :height="260" />
+        </section>
+
+        <section class="admin-card admin-fade-in admin-fade-in-delay-2 p-5">
+            <div class="mb-3">
+                <flux:heading size="lg">{{ __('Users by role') }}</flux:heading>
+                <flux:subheading>{{ __('Admins vs regular users.') }}</flux:subheading>
+            </div>
+            <x-core::charts.chart type="doughnut" :dataset="$roleBreakdownChart" :height="260" />
+        </section>
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-3">
+        <section class="admin-card admin-fade-in admin-fade-in-delay-3 p-5 xl:col-span-2">
+            <div class="mb-3">
+                <flux:heading size="lg">{{ __('Weekly activity') }}</flux:heading>
+                <flux:subheading>{{ __('Sample logins vs actions.') }}</flux:subheading>
+            </div>
+            <x-core::charts.chart type="bar" :dataset="$weeklyActivityChart" :height="240" />
+        </section>
+
+        <section class="admin-card admin-fade-in admin-fade-in-delay-4 p-5">
+            <div class="mb-3">
+                <flux:heading size="lg">{{ __('Account status') }}</flux:heading>
+                <flux:subheading>{{ __('Active vs inactive accounts.') }}</flux:subheading>
+            </div>
+            <x-core::charts.chart type="doughnut" :dataset="$statusBreakdownChart" :height="240" />
+        </section>
+    </div>
 
     <div class="grid gap-4 xl:grid-cols-5">
         {{-- Schedule --}}

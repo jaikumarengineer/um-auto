@@ -79,13 +79,17 @@
                 </button>
             </flux:tooltip>
             <flux:menu class="admin-menu w-80 overflow-hidden rounded-2xl!">
-                <div class="px-3 py-2">
+                <div class="flex items-center justify-between px-3 py-2.5">
                     <p class="text-sm font-semibold">{{ __('Notifications') }}</p>
+                    <span class="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">0 {{ __('new') }}</span>
                 </div>
                 <flux:menu.separator />
-                <div class="flex flex-col items-center gap-2 px-4 py-8 text-center">
-                    <flux:icon.bell variant="outline" class="size-8 text-zinc-300 dark:text-zinc-600" />
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('No notifications yet.') }}</p>
+                <div class="flex flex-col items-center gap-2.5 px-4 py-9 text-center">
+                    <span class="flex size-12 items-center justify-center rounded-full bg-[var(--admin-surface-muted)]">
+                        <flux:icon.bell variant="outline" class="size-5 text-zinc-400 dark:text-zinc-500" />
+                    </span>
+                    <p class="text-sm font-medium text-zinc-600 dark:text-zinc-300">{{ __('You’re all caught up') }}</p>
+                    <p class="text-xs text-zinc-400 dark:text-zinc-500">{{ __('No notifications yet.') }}</p>
                 </div>
             </flux:menu>
         </flux:dropdown>
@@ -130,19 +134,27 @@
             <span class="hidden max-w-24 truncate text-sm font-medium lg:inline">{{ auth()->user()->name }}</span>
             <flux:icon.chevron-down variant="outline" class="hidden size-4 stroke-[1.5] opacity-60 lg:inline" />
         </button>
-        <flux:menu class="admin-menu w-56 overflow-hidden rounded-2xl!">
-            <div class="px-3 py-2">
-                <p class="truncate text-sm font-semibold">{{ auth()->user()->name }}</p>
-                <p class="truncate text-xs text-zinc-500">{{ auth()->user()->email }}</p>
+        <flux:menu class="admin-menu w-64 overflow-hidden rounded-2xl!">
+            <div class="flex items-center gap-3 px-3 py-3">
+                <span class="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-base font-semibold text-[var(--admin-primary-foreground)]">
+                    {{ auth()->user()->initials() }}
+                </span>
+                <div class="min-w-0">
+                    <p class="truncate text-sm font-semibold">{{ auth()->user()->name }}</p>
+                    <p class="truncate text-xs text-zinc-500 dark:text-zinc-400">{{ auth()->user()->email }}</p>
+                </div>
             </div>
             <flux:menu.separator />
             <flux:menu.item :href="route('admin::profile')" icon="user-circle" icon:variant="outline" wire:navigate>
                 {{ __('Profile') }}
             </flux:menu.item>
+            <flux:menu.item :href="route('admin::documentation.help')" icon="question-mark-circle" icon:variant="outline" wire:navigate>
+                {{ __('Help') }}
+            </flux:menu.item>
             <flux:menu.separator />
             <form method="POST" action="{{ route('logout') }}" class="w-full">
                 @csrf
-                <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" icon:variant="outline" class="w-full">
+                <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" icon:variant="outline" class="w-full text-red-600! dark:text-red-400!">
                     {{ __('Log Out') }}
                 </flux:menu.item>
             </form>

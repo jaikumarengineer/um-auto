@@ -40,6 +40,9 @@
                 this.$select.multipleSelect('setSelects', values);
             },
             init() {
+                window.onAdminFormsReady(() => this.setup());
+            },
+            setup() {
                 const api = window.AdminForms;
                 if (! api) return;
                 const $ = api.$;

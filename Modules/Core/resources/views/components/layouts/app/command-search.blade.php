@@ -168,7 +168,7 @@
 >
     <flux:modal
         name="admin-command-search"
-        class="admin-command-search !max-w-xl !p-0 overflow-hidden dark:!bg-[var(--admin-surface)]"
+        class="admin-command-search !max-w-3xl !p-0 overflow-hidden dark:!bg-[var(--admin-surface)]"
     >
         <div
             class="flex flex-col"
@@ -176,21 +176,21 @@
             x-on:keydown.arrow-up.prevent="move(-1)"
             x-on:keydown.enter.prevent="selectActive()"
         >
-            <div class="flex items-center gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
-                <flux:icon.magnifying-glass variant="outline" class="size-5 shrink-0 text-zinc-400" />
+            <div class="flex items-center gap-3 border-b border-zinc-200 px-5 py-4 dark:border-zinc-700">
+                <flux:icon.magnifying-glass variant="outline" class="size-6 shrink-0 text-zinc-400" />
                 <input
                     x-ref="query"
-                    type="search"
+                    type="text"
                     x-model="query"
                     x-on:input="active = 0; $nextTick(() => refreshActive())"
                     placeholder="{{ __('Type a command or search…') }}"
-                    class="min-w-0 flex-1 border-0 bg-transparent text-base text-zinc-800 outline-none placeholder:text-zinc-400 focus:ring-0 dark:text-zinc-100"
+                    class="min-w-0 flex-1 border-0 bg-transparent text-lg text-zinc-800 outline-none placeholder:text-zinc-400 focus:ring-0 dark:text-zinc-100"
                     autocomplete="off"
                     spellcheck="false"
                 />
                 <button
                     type="button"
-                    class="inline-flex size-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                    class="inline-flex size-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                     x-on:click="close()"
                     aria-label="{{ __('Close') }}"
                 >
@@ -198,7 +198,7 @@
                 </button>
             </div>
 
-            <div x-ref="list" class="admin-command-search-list max-h-[22rem] overflow-y-auto p-2">
+            <div x-ref="list" class="admin-command-search-list grid max-h-[32rem] gap-1 overflow-y-auto p-3 sm:grid-cols-2">
                 @foreach ($grouped as $group => $items)
                     @php
                         $matchArgs = $items->map(fn ($item) => [
@@ -219,13 +219,13 @@
                             <button
                                 type="button"
                                 data-command-item
-                                class="admin-command-item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                class="admin-command-item flex w-full items-center gap-3 rounded-xl px-3 py-3 text-start text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                                 x-show="matches(@js($item['keywords']), @js($item['label']), @js($item['group']))"
                                 x-on:mouseenter="active = visibleButtons().indexOf($el); refreshActive()"
                                 x-on:click="run(@js($item['action']), @js($item['href']))"
                             >
-                                <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">
-                                    <flux:icon :icon="$item['icon']" variant="outline" class="size-4" />
+                                <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">
+                                    <flux:icon :icon="$item['icon']" variant="outline" class="size-4.5" />
                                 </span>
                                 <span class="min-w-0 flex-1 truncate font-medium">{{ $item['label'] }}</span>
                             </button>
@@ -234,7 +234,7 @@
                 @endforeach
 
                 <div
-                    class="px-3 py-10 text-center text-sm text-zinc-500"
+                    class="col-span-full px-3 py-14 text-center text-sm text-zinc-500"
                     x-show="visibleButtons().length === 0"
                     x-cloak
                 >
@@ -242,7 +242,7 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-between gap-3 border-t border-zinc-200 px-4 py-2.5 text-[11px] text-zinc-400 dark:border-zinc-700">
+            <div class="flex items-center justify-between gap-3 border-t border-zinc-200 px-5 py-3 text-[11px] text-zinc-400 dark:border-zinc-700">
                 <span>{{ __('Navigate with ↑ ↓ · Open with Enter') }}</span>
                 <span class="inline-flex items-center gap-1">
                     <kbd class="rounded border border-zinc-200 px-1.5 py-0.5 dark:border-zinc-600">Esc</kbd>

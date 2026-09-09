@@ -172,30 +172,26 @@ new #[Layout('core::layouts.app')] class extends Component {
             <div class="grid grid-cols-1 gap-5 px-6 py-6 lg:grid-cols-2">
                 {{-- Avatar --}}
                 <div class="lg:col-span-2">
-                    <div class="flex flex-col items-start gap-4 lg:flex-row lg:items-center">
-                        <div class="w-full lg:w-2/5">
-                            <x-core::forms.filepond
-                                wire:model="image"
-                                model="image"
-                                :label="__('Avatar Image')"
-                                :description="__('Dimension: 500 × 500 pixels')"
-                                :accepted-file-types="['image/png', 'image/jpeg', 'image/webp']"
-                            />
-                        </div>
-                        <div class="flex items-center gap-3">
-                            @if ($avatarSrc)
-                                <img
-                                    src="{{ $avatarSrc }}"
-                                    alt=""
-                                    class="size-16 rounded-full object-cover shadow-sm ring-2 ring-zinc-100 dark:ring-zinc-800"
-                                />
-                            @else
-                                <div class="flex size-16 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--admin-primary)_15%,white)] text-sm font-semibold text-[var(--admin-primary)] shadow-sm">
+                    <div class="w-full lg:w-2/5">
+                        @if (! $avatarSrc)
+                            <div class="mb-2 flex items-center gap-3">
+                                <div class="flex size-12 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--admin-primary)_15%,white)] text-sm font-semibold text-[var(--admin-primary)] shadow-sm">
                                     {{ strtoupper(substr($name ?: 'U', 0, 1)) }}{{ strtoupper(substr($last_name ?: '', 0, 1)) }}
                                 </div>
-                            @endif
-                            <p class="text-xs text-zinc-500">{{ __('Current preview') }}</p>
-                        </div>
+                                <p class="text-xs text-zinc-500">{{ __('No avatar uploaded yet') }}</p>
+                            </div>
+                        @endif
+                        <x-core::forms.filepond
+                            wire:model="image"
+                            model="image"
+                            :label="__('Avatar Image')"
+                            :description="__('Dimension: 500 × 500 pixels')"
+                            :accepted-file-types="['image/png', 'image/jpeg', 'image/webp']"
+                            :preview="$avatarSrc"
+                            shape="square"
+                            circle
+                            max-height="6rem"
+                        />
                     </div>
                 </div>
 

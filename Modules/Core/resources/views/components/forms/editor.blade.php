@@ -20,6 +20,9 @@
         x-data="{
             editor: null,
             init() {
+                window.onAdminFormsReady(() => this.setup());
+            },
+            setup() {
                 const api = window.AdminForms;
                 if (! api) return;
                 api.ClassicEditor.create(this.$refs.editor, {

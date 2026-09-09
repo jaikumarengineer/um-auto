@@ -10,6 +10,28 @@
 <link rel="preconnect" href="https://fonts.bunny.net">
 <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
 
+{{--
+    Livewire injects its own script synchronously near `</body>` and calls
+    `Alpine.start()` immediately on parse — before our Vite-built `app.js`
+    (a deferred ES module) has had a chance to run and set `window.AdminForms`
+    / `window.AdminCharts`. Any Alpine component that reads those globals from
+    its `init()` would otherwise silently no-op. This tiny ready-gate (defined
+    here, synchronously, before anything else) lets those components defer
+    their setup until admin-forms.js signals it's actually loaded — regardless
+    of which one finishes first.
+--}}
+<script>
+    window.AdminFormsReady = false;
+    window.__adminFormsReadyCallbacks = [];
+    window.onAdminFormsReady = function (callback) {
+        if (window.AdminFormsReady) {
+            callback();
+        } else {
+            window.__adminFormsReadyCallbacks.push(callback);
+        }
+    };
+</script>
+
 {{-- Apply defaults only when server did not already set datasets (avoid FOUC) --}}
 <script>
     (function () {

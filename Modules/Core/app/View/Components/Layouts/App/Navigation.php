@@ -20,19 +20,33 @@ class Navigation extends Component
     protected function getNavigationItems(): array
     {
         return [
+            // Plain (non-expandable) section headings — purely visual labels above
+            // groups of related items, e.g. "MAIN", "MANAGEMENT", "SETTINGS"...
             [
-                'type' => 'item',
-                'label' => __('Dashboard'),
-                'route' => 'admin::dashboard',
-                'icon' => 'home',
-                'active' => request()->routeIs('admin::dashboard'),
+                'type' => 'group',
+                'heading' => __('Main'),
+                'expandable' => false,
+                'children' => [
+                    [
+                        'label' => __('Dashboard'),
+                        'route' => 'admin::dashboard',
+                        'icon' => 'home',
+                        'active' => request()->routeIs('admin::dashboard'),
+                    ],
+                ],
             ],
             [
-                'type' => 'item',
-                'label' => __('Users'),
-                'route' => 'admin::users.list',
-                'icon' => 'users',
-                'active' => request()->routeIs('admin::users.*'),
+                'type' => 'group',
+                'heading' => __('Management'),
+                'expandable' => false,
+                'children' => [
+                    [
+                        'label' => __('Users'),
+                        'route' => 'admin::users.list',
+                        'icon' => 'users',
+                        'active' => request()->routeIs('admin::users.*'),
+                    ],
+                ],
             ],
             [
                 'type' => 'group',
@@ -96,7 +110,7 @@ class Navigation extends Component
             ],
             [
                 'type' => 'group',
-                'heading' => __('Documentation'),
+                'heading' => __('System'),
                 'icon' => 'book-open',
                 'expandable' => true,
                 'expanded' => request()->routeIs('admin::documentation.*') || request()->routeIs('admin::components.*'),

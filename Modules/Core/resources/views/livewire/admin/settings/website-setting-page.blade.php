@@ -92,10 +92,24 @@ new #[Layout('core::layouts.app')] class extends Component {
             </div>
             <div class="grid gap-5 px-6 py-6 sm:grid-cols-2">
                 <div>
-                    <x-core::forms.filepond wire:model="logo" model="logo" :label="__('Logo')" :description="$logo_path ? __('Current: :path', ['path' => $logo_path]) : null" />
+                    <x-core::forms.filepond
+                        wire:model="logo"
+                        model="logo"
+                        :label="__('Logo')"
+                        :preview="$logo_path ? asset('storage/'.$logo_path) : null"
+                        max-height="6rem"
+                    />
                 </div>
                 <div>
-                    <x-core::forms.filepond wire:model="favicon" model="favicon" :label="__('Favicon')" :accepted-file-types="['image/png', 'image/x-icon', 'image/svg+xml', 'image/jpeg']" />
+                    <x-core::forms.filepond
+                        wire:model="favicon"
+                        model="favicon"
+                        :label="__('Favicon')"
+                        :accepted-file-types="['image/png', 'image/x-icon', 'image/svg+xml', 'image/jpeg']"
+                        :preview="$favicon_path ? asset('storage/'.$favicon_path) : null"
+                        shape="square"
+                        max-height="4rem"
+                    />
                 </div>
             </div>
             <div class="flex justify-end border-t border-zinc-200 bg-[var(--admin-surface-muted)] px-6 py-4 dark:border-zinc-700">

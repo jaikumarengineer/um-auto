@@ -25,7 +25,12 @@ new class extends Component {
             : true;
         $this->sidebarCollapsed = (bool) ($prefs['sidebar_collapsed'] ?? false);
 
-        $this->applyToDocument();
+        // Silent: this is just re-applying already-known saved prefs on a
+        // fresh page load, not a real theme change — broadcasting the
+        // 'admin-theme-changed' event here would make the dashboard charts
+        // destroy + redraw themselves right as they're still playing their
+        // entrance animation, which crashes Chart.js (destroy-during-animation).
+        $this->applyToDocument(silent: true);
     }
 
     public function setPreset(string $preset): void
@@ -89,7 +94,7 @@ new class extends Component {
         $this->applyToDocument();
     }
 
-    protected function applyToDocument(): void
+    protected function applyToDocument(bool $silent = false): void
     {
         $payload = [
             'preset' => $this->themePreset,
@@ -100,9 +105,10 @@ new class extends Component {
         ];
 
         $json = json_encode($payload);
+        $options = json_encode(['silent' => $silent]);
 
         $this->js(<<<JS
-            window.AdminTheme?.hydrate({$json});
+            window.AdminTheme?.hydrate({$json}, {$options});
         JS);
     }
 }; ?>
@@ -118,7 +124,7 @@ new class extends Component {
                 uiRadius: @js($uiRadius),
                 navbarFixed: @js($navbarFixed),
                 sidebarCollapsed: @js($sidebarCollapsed),
-            });
+            }, { silent: true });
             window.__adminThemeLivewire = $wire;
         "
         wire:ignore.self

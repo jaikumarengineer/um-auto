@@ -77,13 +77,21 @@ window.AdminTheme = {
     get sidebarCollapsed() {
         return document.documentElement.dataset.sidebarCollapsed === 'true';
     },
-    hydrate(state = {}) {
+    hydrate(state = {}, options = {}) {
         applyToDom(state);
         cacheLocal(state);
         if (window.Alpine?.store('adminTheme')) {
             Alpine.store('adminTheme').syncFrom(state);
         }
-        emitChange();
+        // Callers that are just re-syncing existing state (initial paint, SPA
+        // navigation) pass `silent: true` so they don't broadcast a bogus
+        // 'admin-theme-changed' — listeners like the dashboard charts treat
+        // that event as "the theme actually changed, destroy + redraw", and
+        // firing it needlessly right after a chart is created causes it to
+        // be destroyed mid-animation (a well-known Chart.js crash).
+        if (! options.silent) {
+            emitChange();
+        }
     },
     setLayout(layout) {
         applyToDom({ layout });
@@ -154,8 +162,8 @@ function registerAdminThemeStore() {
             if (typeof state.navbarFixed === 'boolean') this.navbarFixed = state.navbarFixed;
             if (typeof state.sidebarCollapsed === 'boolean') this.sidebarCollapsed = state.sidebarCollapsed;
         },
-        hydrateFromLivewire(state) {
-            window.AdminTheme.hydrate(state);
+        hydrateFromLivewire(state, options = {}) {
+            window.AdminTheme.hydrate(state, options);
             this.syncFrom(state);
         },
         setLayout(layout) {
@@ -190,17 +198,19 @@ document.addEventListener('alpine:init', () => {
 
 if (window.Alpine) registerAdminThemeStore();
 
-// Keep Flux collapsed-desktop attribute in sync after first paint / Livewire navigations
+// Keep Flux collapsed-desktop attribute in sync after first paint / Livewire navigations.
+// `silent: true` — this is just re-applying already-known state, not an actual
+// theme change, so it must not broadcast 'admin-theme-changed' (see hydrate()).
 document.addEventListener('DOMContentLoaded', () => {
     window.AdminTheme?.hydrate({
         sidebarCollapsed: window.AdminTheme.sidebarCollapsed,
-    });
+    }, { silent: true });
 });
 
 document.addEventListener('livewire:navigated', () => {
     window.AdminTheme?.hydrate({
         sidebarCollapsed: window.AdminTheme.sidebarCollapsed,
-    });
+    }, { silent: true });
 });
 
 import './admin-forms.js';

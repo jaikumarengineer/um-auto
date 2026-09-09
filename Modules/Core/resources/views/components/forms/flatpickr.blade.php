@@ -30,6 +30,9 @@
         x-data="{
             picker: null,
             init() {
+                window.onAdminFormsReady(() => this.setup());
+            },
+            setup() {
                 const api = window.AdminForms;
                 if (! api) return;
                 this.picker = api.flatpickr(this.$refs.input, {

@@ -212,29 +212,27 @@ new #[Layout('core::layouts.app')] class extends Component {
         {{-- Right: tabs --}}
         <div class="lg:col-span-4">
             <div class="admin-card overflow-hidden">
-                <div class="flex gap-1 overflow-x-auto border-b border-zinc-200 bg-[var(--admin-surface-muted)] px-3 py-2 dark:border-zinc-700">
+                <div class="admin-tabs-underline bg-[var(--admin-surface-muted)] px-5">
                     <button
                         type="button"
                         wire:click="$set('selectedTab', 'profile')"
                         @class([
-                            'inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition whitespace-nowrap',
-                            'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white' => $selectedTab === 'profile',
-                            'text-zinc-600 hover:bg-white/70 dark:text-zinc-400 dark:hover:bg-zinc-800/70' => $selectedTab !== 'profile',
+                            'admin-tabs-underline-btn',
+                            'is-active' => $selectedTab === 'profile',
                         ])
                     >
-                        <flux:icon.user variant="outline" class="size-4 stroke-[1.5]" />
+                        <flux:icon.user variant="outline" class="size-4 shrink-0 stroke-[1.5]" />
                         {{ __('Profile') }}
                     </button>
                     <button
                         type="button"
                         wire:click="$set('selectedTab', 'security')"
                         @class([
-                            'inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition whitespace-nowrap',
-                            'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white' => $selectedTab === 'security',
-                            'text-zinc-600 hover:bg-white/70 dark:text-zinc-400 dark:hover:bg-zinc-800/70' => $selectedTab !== 'security',
+                            'admin-tabs-underline-btn',
+                            'is-active' => $selectedTab === 'security',
                         ])
                     >
-                        <flux:icon.lock-closed variant="outline" class="size-4 stroke-[1.5]" />
+                        <flux:icon.lock-closed variant="outline" class="size-4 shrink-0 stroke-[1.5]" />
                         {{ __('Change Password') }}
                     </button>
                 </div>
