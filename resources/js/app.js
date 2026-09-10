@@ -213,7 +213,10 @@ document.addEventListener('livewire:navigated', () => {
     }, { silent: true });
 });
 
-import './admin-forms.js';
+// Heavy form/editor libs load asynchronously — Alpine components already wait
+// via window.onAdminFormsReady() (see resources/views/partials/head.blade.php).
+import('./admin-forms.js');
+
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 

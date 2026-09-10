@@ -20,10 +20,12 @@ import TiptapLink from '@tiptap/extension-link';
 import TiptapImage from '@tiptap/extension-image';
 import TiptapTextAlign from '@tiptap/extension-text-align';
 import TiptapPlaceholder from '@tiptap/extension-placeholder';
-import TiptapTable from '@tiptap/extension-table';
-import TiptapTableRow from '@tiptap/extension-table-row';
-import TiptapTableCell from '@tiptap/extension-table-cell';
-import TiptapTableHeader from '@tiptap/extension-table-header';
+import {
+    Table as TiptapTable,
+    TableRow as TiptapTableRow,
+    TableCell as TiptapTableCell,
+    TableHeader as TiptapTableHeader,
+} from '@tiptap/extension-table';
 import TiptapCharacterCount from '@tiptap/extension-character-count';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
