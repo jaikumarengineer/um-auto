@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
 <link rel="preconnect" href="https://fonts.bunny.net">
-<link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600|lato:400,500,700|inter:400,500,600|nunito:400,500,600,700|dm-sans:400,500,600|source-sans-3:400,500,600" rel="stylesheet" />
+<link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700|lato:400,500,700|inter:400,500,600,700|nunito:400,500,600,700|dm-sans:400,500,600,700|source-sans-3:400,500,600,700" rel="stylesheet" />
 
 {{--
     Livewire injects its own script synchronously near `</body>` and calls
@@ -37,6 +37,41 @@
             } else {
                 window.__adminFormsReadyCallbacks.push(callback);
             }
+        };
+
+        // Stub so Alpine can evaluate x-data="adminTiptap(...)" before admin-forms.js loads.
+        window.adminTiptap = function (config) {
+            return {
+                debounceTimeout: null,
+                chars: 0,
+                words: 0,
+                active: {},
+                canUndo: false,
+                canRedo: false,
+                init() {
+                    var self = this;
+                    window.onAdminFormsReady(function () {
+                        var factory = window.__adminTiptapFactory;
+                        if (typeof factory !== 'function') {
+                            console.warn('Tiptap factory is not loaded');
+                            return;
+                        }
+                        var real = factory(config);
+                        Object.keys(real).forEach(function (key) {
+                            if (key === 'init') return;
+                            self[key] = real[key];
+                        });
+                        self.setup();
+                    });
+                },
+                run: function () {},
+                setHeading: function () {},
+                setLink: function () {},
+                pickImage: function () {},
+                uploadImage: function () {},
+                destroy: function () {},
+                refresh: function () {},
+            };
         };
     })();
 </script>
