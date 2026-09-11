@@ -85,7 +85,12 @@ new #[Layout('core::layouts.app')] class extends Component {
         $user->save();
 
         $this->fillFromUser($user->fresh());
-        $this->dispatch('toast', message: __('Profile saved successfully.'), type: 'success');
+        $this->dispatch(
+            'SweetMessage',
+            type: 'success',
+            title: __('Success'),
+            message: __('Profile saved successfully.'),
+        );
     }
 
     public function saveAvatar(): void
@@ -105,7 +110,12 @@ new #[Layout('core::layouts.app')] class extends Component {
             $this->avatar = null;
         }
 
-        $this->dispatch('toast', message: __('Avatar updated successfully.'), type: 'success');
+        $this->dispatch(
+            'SweetMessage',
+            type: 'success',
+            title: __('Success'),
+            message: __('Avatar updated successfully.'),
+        );
         $this->dispatch('modal-close', name: 'profile-avatar');
     }
 
@@ -127,7 +137,12 @@ new #[Layout('core::layouts.app')] class extends Component {
         ]);
 
         $this->reset('current_password', 'password', 'password_confirmation');
-        $this->dispatch('toast', message: __('Password changed successfully.'), type: 'success');
+        $this->dispatch(
+            'SweetMessage',
+            type: 'success',
+            title: __('Success'),
+            message: __('Password changed successfully.'),
+        );
     }
 
     protected function fillFromUser(User $user): void
@@ -160,10 +175,14 @@ new #[Layout('core::layouts.app')] class extends Component {
 @endphp
 
 <div class="w-full space-y-6">
-    <div>
-        <flux:heading size="xl">{{ __('Profile') }}</flux:heading>
-        <flux:subheading>{{ __('Here you can edit your profile') }}</flux:subheading>
-    </div>
+    <x-core::ui.page-header
+        :title="__('Profile')"
+        :subtitle="__('Here you can edit your profile')"
+        :breadcrumbs="[
+            ['label' => __('Dashboard'), 'route' => 'admin::dashboard'],
+            ['label' => __('Profile')],
+        ]"
+    />
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-6">
         {{-- Left: identity card --}}

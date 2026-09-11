@@ -1,5 +1,6 @@
 <?php
 
+use Flux\Flux;
 use Illuminate\Support\Facades\Artisan;
 use Livewire\Volt\Component;
 
@@ -36,7 +37,13 @@ new class extends Component {
 
     protected function toast(string $message, string $type = 'success'): void
     {
-        $this->dispatch('toast', message: $message, type: $type);
+        $variant = match ($type) {
+            'error', 'danger' => 'danger',
+            'warning' => 'warning',
+            default => 'success',
+        };
+
+        Flux::toast(text: $message, variant: $variant);
     }
 }; ?>
 

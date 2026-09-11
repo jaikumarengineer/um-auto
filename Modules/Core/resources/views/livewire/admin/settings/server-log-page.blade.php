@@ -144,14 +144,17 @@ new #[Layout('core::layouts.app')] class extends Component {
 @endphp
 
 <div class="space-y-6">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-            <flux:heading size="xl">{{ __('Server Logs') }}</flux:heading>
-            <flux:subheading>{{ __('Browse, filter, download, or clear Laravel log files.') }}</flux:subheading>
-        </div>
-
-        @if ($current)
-            <div class="flex flex-wrap gap-2">
+    <x-core::ui.page-header
+        :title="__('Server Logs')"
+        :subtitle="__('Browse, filter, download, or clear Laravel log files.')"
+        :breadcrumbs="[
+            ['label' => __('Dashboard'), 'route' => 'admin::dashboard'],
+            ['label' => __('Settings')],
+            ['label' => __('Server Logs')],
+        ]"
+    >
+        <x-slot:actions>
+            @if ($current)
                 <flux:button variant="ghost" wire:click="download" icon="arrow-down-tray">{{ __('Download') }}</flux:button>
                 <flux:button
                     variant="ghost"
@@ -165,9 +168,9 @@ new #[Layout('core::layouts.app')] class extends Component {
                     wire:confirm="{{ __('Permanently delete this log file?') }}"
                     icon="x-mark"
                 >{{ __('Delete file') }}</flux:button>
-            </div>
-        @endif
-    </div>
+            @endif
+        </x-slot:actions>
+    </x-core::ui.page-header>
 
     @if ($files->isEmpty())
         <div class="admin-card p-8 text-center text-sm text-zinc-500">

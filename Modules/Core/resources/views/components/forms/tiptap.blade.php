@@ -12,13 +12,14 @@
     $uploadUrl = route('admin::editor.upload');
 @endphp
 
-<div class="admin-form-control admin-tiptap grid gap-2">
+<div class="admin-form-control grid gap-2">
     @if ($label)
         <flux:label>{{ $label }}</flux:label>
     @endif
 
     <div
         wire:ignore
+        class="admin-tiptap"
         x-data="{
             editor: null,
             debounceTimeout: null,
@@ -29,6 +30,12 @@
             setup() {
                 const api = window.AdminForms?.Tiptap;
                 if (! api) { console.warn('Tiptap is not loaded'); return; }
+
+                @if ($name)
+                    const initial = $wire.get(@js($name)) || '';
+                @else
+                    const initial = '';
+                @endif
 
                 this.editor = new api.Editor({
                     element: this.$refs.content,
@@ -46,7 +53,7 @@
                         api.CharacterCount,
                     ],
                     editable: ! @js((bool) $disabled),
-                    content: '',
+                    content: initial,
                     onUpdate: ({ editor }) => {
                         this.refresh();
                         @if ($name)
@@ -61,13 +68,6 @@
                 });
 
                 this.refresh();
-
-                @if ($name)
-                    queueMicrotask(() => {
-                        const current = $wire.get(@js($name));
-                        if (current) this.editor.commands.setContent(current, false);
-                    });
-                @endif
             },
             refresh() {
                 if (! this.editor) return;
@@ -172,13 +172,23 @@
 
             <span class="admin-tiptap-divider"></span>
 
-            {{-- Basic styles --}}
+            {{-- Basic styles — SVG icons to match CKEditor toolbar --}}
             <span class="admin-tiptap-group">
-                <button type="button" class="admin-tiptap-btn admin-tiptap-btn-glyph font-bold" x-bind:class="{ 'is-active': active.bold }" x-on:click="run(c => c.toggleBold().run())" :title="@js(__('Bold'))">B</button>
-                <button type="button" class="admin-tiptap-btn admin-tiptap-btn-glyph italic" x-bind:class="{ 'is-active': active.italic }" x-on:click="run(c => c.toggleItalic().run())" :title="@js(__('Italic'))">I</button>
-                <button type="button" class="admin-tiptap-btn admin-tiptap-btn-glyph underline" x-bind:class="{ 'is-active': active.underline }" x-on:click="run(c => c.toggleUnderline().run())" :title="@js(__('Underline'))">U</button>
-                <button type="button" class="admin-tiptap-btn admin-tiptap-btn-glyph line-through" x-bind:class="{ 'is-active': active.strike }" x-on:click="run(c => c.toggleStrike().run())" :title="@js(__('Strikethrough'))">S</button>
-                <button type="button" class="admin-tiptap-btn admin-tiptap-btn-glyph font-mono" x-bind:class="{ 'is-active': active.code }" x-on:click="run(c => c.toggleCode().run())" :title="@js(__('Inline code'))">&lt;/&gt;</button>
+                <button type="button" class="admin-tiptap-btn" x-bind:class="{ 'is-active': active.bold }" x-on:click="run(c => c.toggleBold().run())" :title="@js(__('Bold'))">
+                    <flux:icon.bold variant="outline" class="size-4" />
+                </button>
+                <button type="button" class="admin-tiptap-btn" x-bind:class="{ 'is-active': active.italic }" x-on:click="run(c => c.toggleItalic().run())" :title="@js(__('Italic'))">
+                    <flux:icon.italic variant="outline" class="size-4" />
+                </button>
+                <button type="button" class="admin-tiptap-btn" x-bind:class="{ 'is-active': active.underline }" x-on:click="run(c => c.toggleUnderline().run())" :title="@js(__('Underline'))">
+                    <flux:icon.underline variant="outline" class="size-4" />
+                </button>
+                <button type="button" class="admin-tiptap-btn" x-bind:class="{ 'is-active': active.strike }" x-on:click="run(c => c.toggleStrike().run())" :title="@js(__('Strikethrough'))">
+                    <flux:icon.strikethrough variant="outline" class="size-4" />
+                </button>
+                <button type="button" class="admin-tiptap-btn" x-bind:class="{ 'is-active': active.code }" x-on:click="run(c => c.toggleCode().run())" :title="@js(__('Inline code'))">
+                    <flux:icon.code-bracket variant="outline" class="size-4" />
+                </button>
             </span>
 
             <span class="admin-tiptap-divider"></span>
@@ -194,7 +204,9 @@
                 <button type="button" class="admin-tiptap-btn" x-on:click="run(c => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())" :title="@js(__('Insert table'))">
                     <flux:icon.table-cells variant="outline" class="size-4" />
                 </button>
-                <button type="button" class="admin-tiptap-btn admin-tiptap-btn-glyph admin-tiptap-quote-icon" x-bind:class="{ 'is-active': active.blockquote }" x-on:click="run(c => c.toggleBlockquote().run())" :title="@js(__('Block quote'))">❝</button>
+                <button type="button" class="admin-tiptap-btn" x-bind:class="{ 'is-active': active.blockquote }" x-on:click="run(c => c.toggleBlockquote().run())" :title="@js(__('Block quote'))">
+                    <flux:icon.chat-bubble-bottom-center-text variant="outline" class="size-4" />
+                </button>
             </span>
 
             <span class="admin-tiptap-divider"></span>
@@ -232,7 +244,7 @@
             {{-- Blocks --}}
             <span class="admin-tiptap-group">
                 <button type="button" class="admin-tiptap-btn" x-bind:class="{ 'is-active': active.codeBlock }" x-on:click="run(c => c.toggleCodeBlock().run())" :title="@js(__('Code block'))">
-                    <flux:icon.code-bracket variant="outline" class="size-4" />
+                    <flux:icon.code-bracket-square variant="outline" class="size-4" />
                 </button>
                 <button type="button" class="admin-tiptap-btn" x-on:click="run(c => c.setHorizontalRule().run())" :title="@js(__('Horizontal line'))">
                     <flux:icon.minus variant="outline" class="size-4" />

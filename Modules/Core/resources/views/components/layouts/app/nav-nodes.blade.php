@@ -1,7 +1,18 @@
 @props(['nodes' => [], 'depth' => 0])
 
 @foreach ($nodes as $node)
-    @if (($node['type'] ?? 'item') === 'group')
+    @php
+        $type = $node['type'] ?? 'item';
+    @endphp
+
+    @if ($type === 'heading')
+        <div @class([
+            'admin-nav-heading',
+            'admin-nav-heading-first' => $loop->first,
+        ])>
+            {{ $node['label'] ?? $node['heading'] ?? '' }}
+        </div>
+    @elseif ($type === 'group')
         @php
             $expandable = $node['expandable'] ?? true;
         @endphp
@@ -13,15 +24,11 @@
             :expanded="$node['expanded'] ?? false"
             @class([
                 'admin-nav-group' => $depth === 0,
-                'admin-nav-heading-group' => ! $expandable,
-                'admin-nav-group-nested' => $depth > 0 && $expandable,
+                'admin-nav-group-nested' => $depth > 0,
                 'admin-nav-group-deep' => $depth > 1,
             ])
         >
-            {{-- A plain heading (expandable: false) is purely a visual section label —
-                 its children stay at the same visual depth so they keep full icon + label
-                 styling instead of the indented "sub item" treatment used for dropdowns. --}}
-            <x-core::layouts.app.nav-nodes :nodes="$node['children'] ?? []" :depth="$expandable ? $depth + 1 : $depth" />
+            <x-core::layouts.app.nav-nodes :nodes="$node['children'] ?? []" :depth="$depth + 1" />
         </flux:sidebar.group>
     @else
         <flux:sidebar.item
@@ -29,7 +36,7 @@
             icon:variant="outline"
             :href="route($node['route'])"
             :current="$node['active'] ?? false"
-            wire:navigate
+            wire:navigate.hover
             @class([
                 'admin-nav-item',
                 'admin-nav-subitem' => $depth === 1,

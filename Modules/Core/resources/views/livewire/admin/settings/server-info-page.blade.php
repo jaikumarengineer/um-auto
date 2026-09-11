@@ -106,10 +106,15 @@ new #[Layout('core::layouts.app')] class extends Component {
 @endphp
 
 <div class="space-y-6">
-    <div>
-        <flux:heading size="xl">{{ __('Server Information') }}</flux:heading>
-        <flux:subheading>{{ __('Runtime, disk, and database details for this environment.') }}</flux:subheading>
-    </div>
+    <x-core::ui.page-header
+        :title="__('Server Information')"
+        :subtitle="__('Runtime, disk, and database details for this environment.')"
+        :breadcrumbs="[
+            ['label' => __('Dashboard'), 'route' => 'admin::dashboard'],
+            ['label' => __('Settings')],
+            ['label' => __('Server Info')],
+        ]"
+    />
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
         @foreach ($cards as $card)

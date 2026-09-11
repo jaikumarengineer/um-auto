@@ -62,7 +62,12 @@ new #[Layout('core::layouts.app')] class extends Component {
             'support_phone' => $this->support_phone,
         ], 'mail');
 
-        $this->dispatch('toast', message: __('Mail settings saved.'), type: 'success');
+        $this->dispatch(
+            'SweetMessage',
+            type: 'success',
+            title: __('Success'),
+            message: __('Mail settings saved.'),
+        );
     }
 }; ?>
 
@@ -81,10 +86,15 @@ new #[Layout('core::layouts.app')] class extends Component {
 @endphp
 
 <div class="space-y-6">
-    <div>
-        <flux:heading size="xl">{{ __('Mail Settings') }}</flux:heading>
-        <flux:subheading>{{ __('Outgoing mailer configuration.') }}</flux:subheading>
-    </div>
+    <x-core::ui.page-header
+        :title="__('Mail Settings')"
+        :subtitle="__('Outgoing mailer configuration.')"
+        :breadcrumbs="[
+            ['label' => __('Dashboard'), 'route' => 'admin::dashboard'],
+            ['label' => __('Settings')],
+            ['label' => __('Mail')],
+        ]"
+    />
 
     <form wire:submit="save" class="w-full">
         <div class="admin-card overflow-hidden">

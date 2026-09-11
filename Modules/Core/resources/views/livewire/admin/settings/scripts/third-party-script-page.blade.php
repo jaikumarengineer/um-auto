@@ -27,15 +27,25 @@ new #[Layout('core::layouts.app')] class extends Component {
             'body_scripts' => $this->body_scripts,
         ], 'scripts_third_party');
 
-        $this->dispatch('toast', message: __('Third-party scripts saved.'), type: 'success');
+        $this->dispatch(
+            'SweetMessage',
+            type: 'success',
+            title: __('Success'),
+            message: __('Third-party scripts saved.'),
+        );
     }
 }; ?>
 
 <div class="space-y-6">
-    <div>
-        <flux:heading size="xl">{{ __('Third-party Scripts') }}</flux:heading>
-        <flux:subheading>{{ __('Inject analytics and widgets into head/body.') }}</flux:subheading>
-    </div>
+    <x-core::ui.page-header
+        :title="__('Third-party Scripts')"
+        :subtitle="__('Inject analytics and widgets into head/body.')"
+        :breadcrumbs="[
+            ['label' => __('Dashboard'), 'route' => 'admin::dashboard'],
+            ['label' => __('Settings')],
+            ['label' => __('Third-party Scripts')],
+        ]"
+    />
 
     <form wire:submit="save" class="w-full space-y-6">
         <div class="admin-card overflow-hidden p-6">

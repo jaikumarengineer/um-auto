@@ -7,25 +7,37 @@ const STORAGE_PRESET = 'admin.themePreset';
 const STORAGE_RADIUS = 'admin.uiRadius';
 const STORAGE_NAVBAR = 'admin.navbarFixed';
 const STORAGE_SIDEBAR = 'admin.sidebarCollapsed';
-const VALID_LAYOUTS = ['floating', 'attached'];
-const VALID_PRESETS = ['ocean', 'forest', 'slate', 'rosewood', 'midnight'];
-const VALID_RADII = ['none', 'xs', 'sm', 'md', 'xl'];
+const STORAGE_FONT = 'admin.uiFont';
+const STORAGE_CANVAS = 'admin.canvas';
+const STORAGE_MODAL_BLUR = 'admin.modalBlur';
 
-function cacheLocal({ layout, preset, uiRadius, navbarFixed, sidebarCollapsed } = {}) {
+const VALID_LAYOUTS = ['floating', 'attached'];
+const VALID_PRESETS = ['ocean', 'forest', 'slate', 'rosewood', 'midnight', 'amber', 'violet', 'indigo', 'coral', 'graphite'];
+const VALID_RADII = ['none', 'xs', 'sm', 'md', 'xl'];
+const VALID_FONTS = ['instrument', 'lato', 'inter', 'nunito', 'dm-sans', 'source-sans'];
+const VALID_CANVASES = ['default', 'soft', 'muted', 'white', 'cool', 'warm'];
+
+function cacheLocal({ layout, preset, uiRadius, navbarFixed, sidebarCollapsed, uiFont, canvas, modalBlur } = {}) {
     try {
         if (layout) localStorage.setItem(STORAGE_LAYOUT, layout);
         if (preset) localStorage.setItem(STORAGE_PRESET, preset);
         if (uiRadius) localStorage.setItem(STORAGE_RADIUS, uiRadius);
         if (typeof navbarFixed === 'boolean') localStorage.setItem(STORAGE_NAVBAR, navbarFixed ? '1' : '0');
         if (typeof sidebarCollapsed === 'boolean') localStorage.setItem(STORAGE_SIDEBAR, sidebarCollapsed ? '1' : '0');
+        if (uiFont) localStorage.setItem(STORAGE_FONT, uiFont);
+        if (canvas) localStorage.setItem(STORAGE_CANVAS, canvas);
+        if (typeof modalBlur === 'boolean') localStorage.setItem(STORAGE_MODAL_BLUR, modalBlur ? '1' : '0');
     } catch {}
 }
 
-function applyToDom({ layout, preset, uiRadius, navbarFixed, sidebarCollapsed } = {}) {
+function applyToDom({ layout, preset, uiRadius, navbarFixed, sidebarCollapsed, uiFont, canvas, modalBlur } = {}) {
     const root = document.documentElement;
     if (layout && VALID_LAYOUTS.includes(layout)) root.dataset.adminLayout = layout;
     if (preset && VALID_PRESETS.includes(preset)) root.dataset.themePreset = preset;
     if (uiRadius && VALID_RADII.includes(uiRadius)) root.dataset.uiRadius = uiRadius;
+    if (uiFont && VALID_FONTS.includes(uiFont)) root.dataset.uiFont = uiFont;
+    if (canvas && VALID_CANVASES.includes(canvas)) root.dataset.canvas = canvas;
+    if (typeof modalBlur === 'boolean') root.dataset.modalBlur = modalBlur ? 'true' : 'false';
     if (typeof navbarFixed === 'boolean') root.dataset.navbarFixed = navbarFixed ? 'true' : 'false';
     if (typeof sidebarCollapsed === 'boolean') {
         root.dataset.sidebarCollapsed = sidebarCollapsed ? 'true' : 'false';
@@ -47,6 +59,9 @@ function emitChange() {
             uiRadius: window.AdminTheme.uiRadius,
             navbarFixed: window.AdminTheme.navbarFixed,
             sidebarCollapsed: window.AdminTheme.sidebarCollapsed,
+            uiFont: window.AdminTheme.uiFont,
+            canvas: window.AdminTheme.canvas,
+            modalBlur: window.AdminTheme.modalBlur,
         },
     }));
 }
@@ -62,6 +77,8 @@ window.AdminTheme = {
     layouts: VALID_LAYOUTS,
     presets: VALID_PRESETS,
     radii: VALID_RADII,
+    fonts: VALID_FONTS,
+    canvases: VALID_CANVASES,
     get layout() {
         return document.documentElement.dataset.adminLayout || 'floating';
     },
@@ -76,6 +93,15 @@ window.AdminTheme = {
     },
     get sidebarCollapsed() {
         return document.documentElement.dataset.sidebarCollapsed === 'true';
+    },
+    get uiFont() {
+        return document.documentElement.dataset.uiFont || 'instrument';
+    },
+    get canvas() {
+        return document.documentElement.dataset.canvas || 'default';
+    },
+    get modalBlur() {
+        return document.documentElement.dataset.modalBlur !== 'false';
     },
     hydrate(state = {}, options = {}) {
         applyToDom(state);
@@ -117,6 +143,24 @@ window.AdminTheme = {
         if (! persistViaLivewire('setNavbarFixed', !! fixed)) emitChange();
         else emitChange();
     },
+    setUiFont(uiFont) {
+        applyToDom({ uiFont });
+        cacheLocal({ uiFont });
+        if (! persistViaLivewire('setUiFont', uiFont)) emitChange();
+        else emitChange();
+    },
+    setCanvas(canvas) {
+        applyToDom({ canvas });
+        cacheLocal({ canvas });
+        if (! persistViaLivewire('setCanvas', canvas)) emitChange();
+        else emitChange();
+    },
+    setModalBlur(enabled) {
+        applyToDom({ modalBlur: !! enabled });
+        cacheLocal({ modalBlur: !! enabled });
+        if (! persistViaLivewire('setModalBlur', !! enabled)) emitChange();
+        else emitChange();
+    },
     toggleSidebar() {
         const next = ! this.sidebarCollapsed;
         applyToDom({ sidebarCollapsed: next });
@@ -141,12 +185,20 @@ function registerAdminThemeStore() {
         uiRadius: window.AdminTheme.uiRadius,
         navbarFixed: window.AdminTheme.navbarFixed,
         sidebarCollapsed: window.AdminTheme.sidebarCollapsed,
+        uiFont: window.AdminTheme.uiFont,
+        canvas: window.AdminTheme.canvas,
+        modalBlur: window.AdminTheme.modalBlur,
         presets: [
             { key: 'ocean', label: 'Ocean', primary: '#0d9488', secondary: '#0284c7' },
             { key: 'forest', label: 'Forest', primary: '#059669', secondary: '#d97706' },
             { key: 'slate', label: 'Slate', primary: '#475569', secondary: '#0891b2' },
             { key: 'rosewood', label: 'Rosewood', primary: '#e11d48', secondary: '#78716c' },
             { key: 'midnight', label: 'Midnight', primary: '#3f3f46', secondary: '#2563eb' },
+            { key: 'amber', label: 'Amber', primary: '#d97706', secondary: '#ea580c' },
+            { key: 'violet', label: 'Violet', primary: '#7c3aed', secondary: '#db2777' },
+            { key: 'indigo', label: 'Indigo', primary: '#4f46e5', secondary: '#0ea5e9' },
+            { key: 'coral', label: 'Coral', primary: '#f43f5e', secondary: '#f97316' },
+            { key: 'graphite', label: 'Graphite', primary: '#52525b', secondary: '#71717a' },
         ],
         radii: [
             { key: 'none', label: 'None' },
@@ -155,12 +207,31 @@ function registerAdminThemeStore() {
             { key: 'md', label: 'MD' },
             { key: 'xl', label: 'XL' },
         ],
+        fonts: [
+            { key: 'instrument', label: 'Instrument Sans' },
+            { key: 'lato', label: 'Lato' },
+            { key: 'inter', label: 'Inter' },
+            { key: 'nunito', label: 'Nunito' },
+            { key: 'dm-sans', label: 'DM Sans' },
+            { key: 'source-sans', label: 'Source Sans 3' },
+        ],
+        canvases: [
+            { key: 'default', label: 'Default' },
+            { key: 'soft', label: 'Soft' },
+            { key: 'muted', label: 'Muted' },
+            { key: 'white', label: 'White' },
+            { key: 'cool', label: 'Cool' },
+            { key: 'warm', label: 'Warm' },
+        ],
         syncFrom(state = {}) {
             if (state.layout) this.layout = state.layout;
             if (state.preset) this.preset = state.preset;
             if (state.uiRadius) this.uiRadius = state.uiRadius;
             if (typeof state.navbarFixed === 'boolean') this.navbarFixed = state.navbarFixed;
             if (typeof state.sidebarCollapsed === 'boolean') this.sidebarCollapsed = state.sidebarCollapsed;
+            if (state.uiFont) this.uiFont = state.uiFont;
+            if (state.canvas) this.canvas = state.canvas;
+            if (typeof state.modalBlur === 'boolean') this.modalBlur = state.modalBlur;
         },
         hydrateFromLivewire(state, options = {}) {
             window.AdminTheme.hydrate(state, options);
@@ -181,6 +252,18 @@ function registerAdminThemeStore() {
         setNavbarFixed(fixed) {
             window.AdminTheme.setNavbarFixed(fixed);
             this.navbarFixed = !! fixed;
+        },
+        setUiFont(uiFont) {
+            window.AdminTheme.setUiFont(uiFont);
+            this.uiFont = uiFont;
+        },
+        setCanvas(canvas) {
+            window.AdminTheme.setCanvas(canvas);
+            this.canvas = canvas;
+        },
+        setModalBlur(enabled) {
+            window.AdminTheme.setModalBlur(enabled);
+            this.modalBlur = !! enabled;
         },
         toggleSidebar() {
             window.AdminTheme.toggleSidebar();
@@ -223,22 +306,43 @@ import 'sweetalert2/dist/sweetalert2.min.css';
 window.Swal = Swal;
 
 window.AdminNotify = {
-    toast(message, type = 'success', title = null) {
-        const icon = ['success', 'error', 'warning', 'info', 'question'].includes(type) ? type : 'info';
+    /**
+     * Map legacy toast types onto Flux variants (success | warning | danger).
+     */
+    fluxVariant(type = 'success') {
+        switch (type) {
+            case 'error':
+            case 'danger':
+                return 'danger';
+            case 'warning':
+                return 'warning';
+            case 'info':
+            case 'success':
+            default:
+                return 'success';
+        }
+    },
 
-        return Swal.fire({
-            toast: true,
-            position: 'bottom-end',
-            icon,
-            title: title || message,
-            text: title ? message : undefined,
-            showConfirmButton: false,
-            timer: 3200,
-            timerProgressBar: true,
-            customClass: {
-                popup: 'admin-swal-toast',
-            },
-        });
+    /**
+     * Lightweight alerts via Flux toast (not SweetAlert).
+     */
+    toast(message, type = 'success', title = null) {
+        const variant = this.fluxVariant(type);
+        const payload = {
+            text: message,
+            variant,
+            duration: 3200,
+        };
+
+        if (title) {
+            payload.heading = title;
+        }
+
+        if (window.Flux && typeof window.Flux.toast === 'function') {
+            return window.Flux.toast(payload);
+        }
+
+        console.warn('Flux.toast is not available', payload);
     },
 
     alert(message, type = 'success', title = null) {
@@ -256,18 +360,143 @@ window.AdminNotify = {
             },
         });
     },
+
+    /**
+     * Modal success/error used on save flows (users, settings).
+     * When `url` is set, shows a "Back To List" cancel that navigates there.
+     */
+    sweetMessage({ type = 'success', title = null, message = '', url = false } = {}) {
+        const icon = ['success', 'error', 'warning', 'info', 'question'].includes(type) ? type : 'error';
+
+        if (type === 'success' && url) {
+            return Swal.fire({
+                title: title || 'Success',
+                text: message,
+                icon: 'success',
+                buttonsStyling: false,
+                showCancelButton: true,
+                cancelButtonText: 'Back To List',
+                confirmButtonText: 'OK',
+                customClass: {
+                    confirmButton: 'admin-swal-confirm',
+                    cancelButton: 'admin-swal-cancel',
+                    popup: 'admin-swal-popup',
+                    actions: 'admin-swal-actions',
+                },
+            }).then((result) => {
+                if (! result.isConfirmed && url) {
+                    Livewire.navigate(url);
+                }
+            });
+        }
+
+        if (type === 'success') {
+            return Swal.fire({
+                title: title || 'Success',
+                text: message,
+                icon: 'success',
+                buttonsStyling: false,
+                confirmButtonText: 'OK',
+                customClass: {
+                    confirmButton: 'admin-swal-confirm',
+                    popup: 'admin-swal-popup',
+                },
+            });
+        }
+
+        return Swal.fire({
+            title: title || 'Error',
+            text: message,
+            icon,
+            buttonsStyling: false,
+            confirmButtonText: 'OK',
+            customClass: {
+                confirmButton: 'admin-swal-confirm',
+                popup: 'admin-swal-popup',
+            },
+        });
+    },
+
+    /**
+     * Reusable confirm dialog (delete / destructive actions).
+     * Returns a Promise<boolean>. Optionally runs `onConfirm` when accepted.
+     *
+     * AdminNotify.confirm({ title, text, onConfirm: () => $wire.deleteUser(1) })
+     */
+    confirm({
+        title = 'Are you sure?',
+        text = 'Once deleted, you will not be able to recover this record!',
+        icon = 'warning',
+        confirmButtonText = 'Yes, delete it!',
+        cancelButtonText = 'Cancel',
+        confirmButtonClass = 'admin-swal-confirm admin-swal-confirm-danger',
+        cancelButtonClass = 'admin-swal-cancel',
+        onConfirm = null,
+        onCancel = null,
+    } = {}) {
+        return Swal.fire({
+            title,
+            text,
+            icon,
+            showCancelButton: true,
+            confirmButtonText,
+            cancelButtonText,
+            buttonsStyling: false,
+            reverseButtons: true,
+            focusCancel: true,
+            customClass: {
+                confirmButton: confirmButtonClass,
+                cancelButton: cancelButtonClass,
+                popup: 'admin-swal-popup',
+                actions: 'admin-swal-actions',
+            },
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                if (typeof onConfirm === 'function') {
+                    await onConfirm();
+                }
+                return true;
+            }
+
+            if (typeof onCancel === 'function') {
+                await onCancel();
+            }
+
+            return false;
+        });
+    },
 };
+
+function normalizeNotifyDetail(raw) {
+    const payload = raw ?? {};
+    return Array.isArray(payload) ? (payload[0] ?? {}) : payload;
+}
 
 document.addEventListener('livewire:init', () => {
     Livewire.on('toast', (...args) => {
-        const payload = args[0] ?? {};
-        const detail = Array.isArray(payload) ? (payload[0] ?? {}) : payload;
+        const detail = normalizeNotifyDetail(args[0]);
         window.AdminNotify.toast(detail.message ?? 'Done', detail.type ?? 'success', detail.title ?? null);
     });
 
     Livewire.on('swal', (...args) => {
-        const payload = args[0] ?? {};
-        const detail = Array.isArray(payload) ? (payload[0] ?? {}) : payload;
+        const detail = normalizeNotifyDetail(args[0]);
         window.AdminNotify.alert(detail.message ?? '', detail.type ?? 'success', detail.title ?? null);
     });
+
+    // Prefer Livewire.on so each PHP $this->dispatch('SweetMessage') fires once
+    // (window CustomEvent would double-trigger the same dispatch).
+    Livewire.on('SweetMessage', (...args) => {
+        window.AdminNotify.sweetMessage(normalizeNotifyDetail(args[0]));
+    });
 });
+
+window.addEventListener('OpenUrlNewTab', (event) => {
+    const detail = normalizeNotifyDetail(event.detail);
+    if (detail.url) {
+        window.open(detail.url, '_blank');
+    }
+});
+
+window.dispatchEventCall = function (name = '') {
+    window.dispatchEvent(new CustomEvent(name));
+};

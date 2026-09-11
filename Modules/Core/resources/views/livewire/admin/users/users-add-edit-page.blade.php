@@ -125,12 +125,21 @@ new #[Layout('core::layouts.app')] class extends Component {
             $fullName = trim($this->name.' '.($this->last_name ?? ''));
             $payload['username'] = generateUserName($fullName);
             $payload['password'] = $payload['password'] ?? Hash::make($this->password);
-            User::create($payload);
+            $user = User::create($payload);
+            $this->userId = $user->id;
+            $this->isEdit = true;
+            $this->password = '';
+            $this->password_confirmation = '';
             $message = __('User created successfully.');
         }
 
-        $this->dispatch('toast', message: $message, type: 'success');
-        $this->redirect(route('admin::users.list'), navigate: true);
+        $this->dispatch(
+            'SweetMessage',
+            type: 'success',
+            title: __('Success'),
+            message: $message,
+            url: route('admin::users.list'),
+        );
     }
 }; ?>
 
@@ -145,27 +154,27 @@ new #[Layout('core::layouts.app')] class extends Component {
 @endphp
 
 <div class="w-full space-y-6">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-start gap-3">
+    <x-core::ui.page-header
+        :title="$isEdit ? __('Edit Website User') : __('New Website User')"
+        :subtitle="__('Here you can add or edit the details of website user.')"
+        :breadcrumbs="[
+            ['label' => __('Dashboard'), 'route' => 'admin::dashboard'],
+            ['label' => __('Users'), 'route' => 'admin::users.list'],
+            ['label' => $isEdit ? __('Edit') : __('New')],
+        ]"
+    >
+        <x-slot:actions>
             <flux:button
                 icon="arrow-left"
                 variant="ghost"
                 size="sm"
-                class="mt-1"
                 :href="route('admin::users.list')"
                 wire:navigate
-                :aria-label="__('Back to list')"
-            />
-            <div>
-                <flux:heading size="xl">
-                    {{ $isEdit ? __('Edit Website User') : __('New Website User') }}
-                </flux:heading>
-                <flux:subheading>
-                    {{ __('Here you can add or edit the details of website user.') }}
-                </flux:subheading>
-            </div>
-        </div>
-    </div>
+            >
+                {{ __('Back') }}
+            </flux:button>
+        </x-slot:actions>
+    </x-core::ui.page-header>
 
     <form wire:submit="save" class="w-full">
         <div class="admin-card overflow-hidden">
@@ -214,6 +223,7 @@ new #[Layout('core::layouts.app')] class extends Component {
                     type="password"
                     viewable
                     :label="__('Retype password')"
+                    :description="$isEdit ? __('Leave blank if you do not want to change the password.') : null"
                     :required="! $isEdit"
                     autocomplete="new-password"
                 />
@@ -227,7 +237,7 @@ new #[Layout('core::layouts.app')] class extends Component {
                     <flux:textarea wire:model="address" :label="__('Address')" rows="3" />
                 </div>
 
-                <div>
+                <div class="lg:col-span-2">
                     <x-core::forms.select2
                         wire:model="user_type"
                         :label="__('Role')"

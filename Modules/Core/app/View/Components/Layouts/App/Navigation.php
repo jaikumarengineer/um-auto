@@ -8,7 +8,12 @@ use Illuminate\View\View;
 class Navigation extends Component
 {
     /**
-     * Navigation tree for the sidebar (items + expandable groups).
+     * Navigation tree for the sidebar.
+     *
+     * Supported node types:
+     * - heading  → section label only (not clickable)
+     * - item     → link (default when type is omitted)
+     * - group    → expandable Flux sidebar group with children
      */
     public array $navigationItems = [];
 
@@ -20,33 +25,30 @@ class Navigation extends Component
     protected function getNavigationItems(): array
     {
         return [
-            // Plain (non-expandable) section headings — purely visual labels above
-            // groups of related items, e.g. "MAIN", "MANAGEMENT", "SETTINGS"...
             [
-                'type' => 'group',
-                'heading' => __('Main'),
-                'expandable' => false,
-                'children' => [
-                    [
-                        'label' => __('Dashboard'),
-                        'route' => 'admin::dashboard',
-                        'icon' => 'home',
-                        'active' => request()->routeIs('admin::dashboard'),
-                    ],
-                ],
+                'type' => 'heading',
+                'label' => __('Main'),
             ],
             [
-                'type' => 'group',
-                'heading' => __('Management'),
-                'expandable' => false,
-                'children' => [
-                    [
-                        'label' => __('Users'),
-                        'route' => 'admin::users.list',
-                        'icon' => 'users',
-                        'active' => request()->routeIs('admin::users.*'),
-                    ],
-                ],
+                'label' => __('Dashboard'),
+                'route' => 'admin::dashboard',
+                'icon' => 'home',
+                'active' => request()->routeIs('admin::dashboard'),
+            ],
+
+            [
+                'type' => 'heading',
+                'label' => __('Management'),
+            ],
+            [
+                'label' => __('Users'),
+                'route' => 'admin::users.list',
+                'icon' => 'users',
+                'active' => request()->routeIs('admin::users.*'),
+            ],
+            [
+                'type' => 'heading',
+                'label' => __('Server & Settings'),
             ],
             [
                 'type' => 'group',
@@ -105,33 +107,6 @@ class Navigation extends Component
                                 'active' => request()->routeIs('admin::settings.scripts.custom'),
                             ],
                         ],
-                    ],
-                ],
-            ],
-            [
-                'type' => 'group',
-                'heading' => __('System'),
-                'icon' => 'book-open',
-                'expandable' => true,
-                'expanded' => request()->routeIs('admin::documentation.*') || request()->routeIs('admin::components.*'),
-                'children' => [
-                    [
-                        'label' => __('Help'),
-                        'route' => 'admin::documentation.help',
-                        'icon' => 'question-mark-circle',
-                        'active' => request()->routeIs('admin::documentation.help'),
-                    ],
-                    [
-                        'label' => __('Changelog'),
-                        'route' => 'admin::documentation.changelog',
-                        'icon' => 'document-text',
-                        'active' => request()->routeIs('admin::documentation.changelog'),
-                    ],
-                    [
-                        'label' => __('Form components'),
-                        'route' => 'admin::components.forms',
-                        'icon' => 'squares-2x2',
-                        'active' => request()->routeIs('admin::components.forms'),
                     ],
                 ],
             ],

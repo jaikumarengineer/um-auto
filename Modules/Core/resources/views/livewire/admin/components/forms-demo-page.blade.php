@@ -65,10 +65,15 @@ new #[Layout('core::layouts.app')] class extends Component {
 @endphp
 
 <div class="space-y-6">
-    <div>
-        <flux:heading size="xl">{{ __('Form components') }}</flux:heading>
-        <flux:subheading>{{ __('Reusable Alpine-powered inputs styled for the admin shell.') }}</flux:subheading>
-    </div>
+    <x-core::ui.page-header
+        :title="__('Form components')"
+        :subtitle="__('Reusable Alpine-powered inputs styled for the admin shell.')"
+        :breadcrumbs="[
+            ['label' => __('Dashboard'), 'route' => 'admin::dashboard'],
+            ['label' => __('Components')],
+            ['label' => __('Forms')],
+        ]"
+    />
 
     {{-- Tab UI variants — pick whichever style fits a given page --}}
     <div class="admin-card space-y-8 p-6">

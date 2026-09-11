@@ -13,6 +13,12 @@ new class extends Component {
 
     public bool $sidebarCollapsed = false;
 
+    public string $uiFont = 'instrument';
+
+    public string $canvas = 'default';
+
+    public bool $modalBlur = true;
+
     public function mount(): void
     {
         $prefs = auth()->user()?->ui_preferences ?? [];
@@ -24,6 +30,11 @@ new class extends Component {
             ? (bool) $prefs['navbar_fixed']
             : true;
         $this->sidebarCollapsed = (bool) ($prefs['sidebar_collapsed'] ?? false);
+        $this->uiFont = $prefs['ui_font'] ?? 'instrument';
+        $this->canvas = $prefs['canvas'] ?? 'default';
+        $this->modalBlur = array_key_exists('modal_blur', $prefs)
+            ? (bool) $prefs['modal_blur']
+            : true;
 
         // Silent: this is just re-applying already-known saved prefs on a
         // fresh page load, not a real theme change — broadcasting the
@@ -35,7 +46,7 @@ new class extends Component {
 
     public function setPreset(string $preset): void
     {
-        if (! in_array($preset, ['ocean', 'forest', 'slate', 'rosewood', 'midnight'], true)) {
+        if (! in_array($preset, ['ocean', 'forest', 'slate', 'rosewood', 'midnight', 'amber', 'violet', 'indigo', 'coral', 'graphite'], true)) {
             return;
         }
 
@@ -69,6 +80,32 @@ new class extends Component {
         $this->persist();
     }
 
+    public function setUiFont(string $font): void
+    {
+        if (! in_array($font, ['instrument', 'lato', 'inter', 'nunito', 'dm-sans', 'source-sans'], true)) {
+            return;
+        }
+
+        $this->uiFont = $font;
+        $this->persist();
+    }
+
+    public function setCanvas(string $canvas): void
+    {
+        if (! in_array($canvas, ['default', 'soft', 'muted', 'white', 'cool', 'warm'], true)) {
+            return;
+        }
+
+        $this->canvas = $canvas;
+        $this->persist();
+    }
+
+    public function setModalBlur(bool $enabled): void
+    {
+        $this->modalBlur = $enabled;
+        $this->persist();
+    }
+
     public function toggleSidebar(): void
     {
         $this->sidebarCollapsed = ! $this->sidebarCollapsed;
@@ -89,6 +126,9 @@ new class extends Component {
             'ui_radius' => $this->uiRadius,
             'navbar_fixed' => $this->navbarFixed,
             'sidebar_collapsed' => $this->sidebarCollapsed,
+            'ui_font' => $this->uiFont,
+            'canvas' => $this->canvas,
+            'modal_blur' => $this->modalBlur,
         ]);
 
         $this->applyToDocument();
@@ -102,6 +142,9 @@ new class extends Component {
             'uiRadius' => $this->uiRadius,
             'navbarFixed' => $this->navbarFixed,
             'sidebarCollapsed' => $this->sidebarCollapsed,
+            'uiFont' => $this->uiFont,
+            'canvas' => $this->canvas,
+            'modalBlur' => $this->modalBlur,
         ];
 
         $json = json_encode($payload);
@@ -124,6 +167,9 @@ new class extends Component {
                 uiRadius: @js($uiRadius),
                 navbarFixed: @js($navbarFixed),
                 sidebarCollapsed: @js($sidebarCollapsed),
+                uiFont: @js($uiFont),
+                canvas: @js($canvas),
+                modalBlur: @js($modalBlur),
             }, { silent: true });
             window.__adminThemeLivewire = $wire;
         "

@@ -27,15 +27,25 @@ new #[Layout('core::layouts.app')] class extends Component {
             'custom_js' => $this->custom_js,
         ], 'scripts_custom');
 
-        $this->dispatch('toast', message: __('Custom scripts saved.'), type: 'success');
+        $this->dispatch(
+            'SweetMessage',
+            type: 'success',
+            title: __('Success'),
+            message: __('Custom scripts saved.'),
+        );
     }
 }; ?>
 
 <div class="space-y-6">
-    <div>
-        <flux:heading size="xl">{{ __('Custom Scripts') }}</flux:heading>
-        <flux:subheading>{{ __('Site-wide custom CSS and JavaScript.') }}</flux:subheading>
-    </div>
+    <x-core::ui.page-header
+        :title="__('Custom Scripts')"
+        :subtitle="__('Site-wide custom CSS and JavaScript.')"
+        :breadcrumbs="[
+            ['label' => __('Dashboard'), 'route' => 'admin::dashboard'],
+            ['label' => __('Settings')],
+            ['label' => __('Custom Scripts')],
+        ]"
+    />
 
     <form wire:submit="save" class="w-full space-y-6">
         <div class="admin-card overflow-hidden p-6">

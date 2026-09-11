@@ -184,6 +184,149 @@ html.dark[data-theme-preset='midnight'] {
     --admin-secondary-foreground: #172554;
 }
 
+html[data-theme-preset='amber'] {
+    --admin-primary: #d97706;
+    --admin-primary-content: #b45309;
+    --admin-primary-foreground: #ffffff;
+    --admin-secondary: #ea580c;
+    --admin-secondary-content: #c2410c;
+    --admin-secondary-foreground: #ffffff;
+}
+
+html[data-theme-preset='violet'] {
+    --admin-primary: #7c3aed;
+    --admin-primary-content: #6d28d9;
+    --admin-primary-foreground: #ffffff;
+    --admin-secondary: #db2777;
+    --admin-secondary-content: #be185d;
+    --admin-secondary-foreground: #ffffff;
+}
+
+html[data-theme-preset='indigo'] {
+    --admin-primary: #4f46e5;
+    --admin-primary-content: #4338ca;
+    --admin-primary-foreground: #ffffff;
+    --admin-secondary: #0ea5e9;
+    --admin-secondary-content: #0284c7;
+    --admin-secondary-foreground: #ffffff;
+}
+
+html[data-theme-preset='coral'] {
+    --admin-primary: #f43f5e;
+    --admin-primary-content: #e11d48;
+    --admin-primary-foreground: #ffffff;
+    --admin-secondary: #f97316;
+    --admin-secondary-content: #ea580c;
+    --admin-secondary-foreground: #ffffff;
+}
+
+html[data-theme-preset='graphite'] {
+    --admin-primary: #52525b;
+    --admin-primary-content: #3f3f46;
+    --admin-primary-foreground: #ffffff;
+    --admin-secondary: #71717a;
+    --admin-secondary-content: #52525b;
+    --admin-secondary-foreground: #ffffff;
+}
+
+html.dark[data-theme-preset='amber'] {
+    --admin-primary: #fbbf24;
+    --admin-primary-content: #fcd34d;
+    --admin-primary-foreground: #451a03;
+    --admin-secondary: #fb923c;
+    --admin-secondary-content: #fdba74;
+    --admin-secondary-foreground: #431407;
+}
+
+html.dark[data-theme-preset='violet'] {
+    --admin-primary: #a78bfa;
+    --admin-primary-content: #c4b5fd;
+    --admin-primary-foreground: #2e1065;
+    --admin-secondary: #f472b6;
+    --admin-secondary-content: #f9a8d4;
+    --admin-secondary-foreground: #500724;
+}
+
+html.dark[data-theme-preset='indigo'] {
+    --admin-primary: #818cf8;
+    --admin-primary-content: #a5b4fc;
+    --admin-primary-foreground: #1e1b4b;
+    --admin-secondary: #38bdf8;
+    --admin-secondary-content: #7dd3fc;
+    --admin-secondary-foreground: #082f49;
+}
+
+html.dark[data-theme-preset='coral'] {
+    --admin-primary: #fb7185;
+    --admin-primary-content: #fda4af;
+    --admin-primary-foreground: #4c0519;
+    --admin-secondary: #fb923c;
+    --admin-secondary-content: #fdba74;
+    --admin-secondary-foreground: #431407;
+}
+
+html.dark[data-theme-preset='graphite'] {
+    --admin-primary: #a1a1aa;
+    --admin-primary-content: #d4d4d8;
+    --admin-primary-foreground: #18181b;
+    --admin-secondary: #d4d4d8;
+    --admin-secondary-content: #e4e4e7;
+    --admin-secondary-foreground: #18181b;
+}
+
+/* Body / canvas background overrides */
+html[data-canvas='soft'] {
+    --admin-canvas: #f4f4f5;
+}
+html[data-canvas='muted'] {
+    --admin-canvas: #e4e4e7;
+}
+html[data-canvas='white'] {
+    --admin-canvas: #ffffff;
+}
+html[data-canvas='cool'] {
+    --admin-canvas: #f0f4f8;
+}
+html[data-canvas='warm'] {
+    --admin-canvas: #faf6f1;
+}
+
+html.dark[data-canvas='soft'] {
+    --admin-canvas: #18181b;
+}
+html.dark[data-canvas='muted'] {
+    --admin-canvas: #27272a;
+}
+html.dark[data-canvas='white'] {
+    --admin-canvas: #0a0a0a;
+}
+html.dark[data-canvas='cool'] {
+    --admin-canvas: #0f172a;
+}
+html.dark[data-canvas='warm'] {
+    --admin-canvas: #1c1917;
+}
+
+/* UI fonts */
+html[data-ui-font='instrument'] {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+}
+html[data-ui-font='lato'] {
+    --font-sans: 'Lato', ui-sans-serif, system-ui, sans-serif;
+}
+html[data-ui-font='inter'] {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+html[data-ui-font='nunito'] {
+    --font-sans: 'Nunito', ui-sans-serif, system-ui, sans-serif;
+}
+html[data-ui-font='dm-sans'] {
+    --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+}
+html[data-ui-font='source-sans'] {
+    --font-sans: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;
+}
+
 @layer theme {
     .dark {
         --color-accent: var(--admin-primary);
@@ -220,14 +363,137 @@ select:focus[data-flux-control] {
 body.admin-shell {
     background: var(--admin-canvas);
     color: inherit;
+    font-family: var(--font-sans);
     transition:
         background-color var(--admin-duration) var(--admin-ease),
         color var(--admin-duration) var(--admin-ease);
 }
 
+/* Mute color/layout transitions during wire:navigate body swaps to avoid blink */
+html.admin-navigating body.admin-shell,
+html.admin-navigating .admin-shell-frame,
+html.admin-navigating .admin-shell [data-flux-sidebar],
+html.admin-navigating .admin-shell [data-flux-header].admin-topbar,
+html.admin-navigating .admin-shell [data-flux-main].admin-main-surface,
+html.admin-navigating .admin-surface,
+html.admin-navigating .admin-card {
+    transition: none !important;
+}
+
+/*
+ * Smooth SPA page transitions — chrome (sidebar/topbar) stays solid;
+ * only the main surface cross-fades so navigations feel soft without blink.
+ */
+html.admin-page-leaving [data-flux-main].admin-main-surface {
+    opacity: 0.35;
+    transform: translateY(4px);
+    transition:
+        opacity 140ms var(--admin-ease),
+        transform 140ms var(--admin-ease) !important;
+    pointer-events: none;
+}
+
+html.admin-page-leaving [data-flux-sidebar],
+html.admin-page-leaving [data-flux-header].admin-topbar {
+    /* keep chrome fully visible while main fades */
+    opacity: 1 !important;
+}
+
+@keyframes adminPageIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+html[data-admin-nav="spa"] [data-flux-main].admin-main-surface {
+    animation: adminPageIn 280ms var(--admin-ease) both;
+}
+
+html.admin-navigating[data-admin-nav="spa"] [data-flux-main].admin-main-surface {
+    /* hold new main invisible until paint settles, then navigated removes this */
+    animation: none;
+    opacity: 0;
+}
+
+html.admin-page-enter [data-flux-main].admin-main-surface {
+    animation: adminPageIn 300ms var(--admin-ease) both;
+}
+
+/* Livewire navigate progress bar — match admin primary */
+#nprogress .bar {
+    background: var(--admin-primary) !important;
+    height: 2.5px !important;
+}
+
+#nprogress .peg {
+    box-shadow:
+        0 0 10px var(--admin-primary),
+        0 0 5px var(--admin-primary) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.admin-page-leaving [data-flux-main].admin-main-surface,
+    html[data-admin-nav="spa"] [data-flux-main].admin-main-surface,
+    html.admin-page-enter [data-flux-main].admin-main-surface,
+    html[data-admin-nav="spa"] .admin-fade-in {
+        animation: none !important;
+        transition: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+}
+
 .admin-shell-frame {
     min-height: 100dvh;
     transition: padding var(--admin-duration) var(--admin-ease);
+}
+
+/* ─── Flux modal — solid panel; optional frosted backdrop ─── */
+[data-flux-modal] dialog::backdrop {
+    background: rgb(24 24 27 / 0.45);
+}
+
+.dark [data-flux-modal] dialog::backdrop {
+    background: rgb(0 0 0 / 0.6);
+}
+
+/* Backdrop blur only when enabled (default on) */
+html:not([data-modal-blur='false']) [data-flux-modal] dialog::backdrop {
+    backdrop-filter: blur(10px) saturate(1.1);
+    -webkit-backdrop-filter: blur(10px) saturate(1.1);
+}
+
+html:not([data-modal-blur='false']).dark [data-flux-modal] dialog::backdrop {
+    backdrop-filter: blur(12px) saturate(1.15);
+    -webkit-backdrop-filter: blur(12px) saturate(1.15);
+}
+
+html[data-modal-blur='false'] [data-flux-modal] dialog::backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.admin-shell [data-flux-modal] > dialog:not([data-flux-flyout]) {
+    border-radius: var(--admin-radius, 0.9rem) !important;
+    border-color: var(--admin-border) !important;
+    background: var(--admin-surface) !important;
+    box-shadow:
+        0 25px 50px -12px rgb(0 0 0 / 0.25),
+        0 0 0 1px color-mix(in srgb, var(--admin-border) 70%, transparent);
+}
+
+.dark body.admin-shell [data-flux-modal] > dialog:not([data-flux-flyout]) {
+    background: var(--admin-surface) !important;
+}
+
+body.admin-shell [data-flux-modal] > dialog[data-flux-flyout] {
+    background: var(--admin-surface) !important;
+    box-shadow: -12px 0 40px rgb(0 0 0 / 0.12);
 }
 
 .admin-surface {
@@ -259,6 +525,275 @@ body.admin-shell {
 .admin-menu {
     overflow-x: hidden !important;
     border-radius: var(--admin-radius-sm) !important;
+}
+
+.admin-actions-menu {
+    min-width: 11.5rem;
+}
+
+.admin-actions-trigger {
+    color: rgb(113 113 122);
+}
+
+/* Icon-only trigger — true square/circle with centered glyph */
+.admin-actions-trigger.admin-actions-trigger-icon {
+    width: 2rem !important;
+    min-width: 2rem !important;
+    max-width: 2rem !important;
+    height: 2rem !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Flux wraps non-empty slots in <span>; hide leftover whitespace nodes */
+.admin-actions-trigger.admin-actions-trigger-icon > span {
+    display: none !important;
+}
+
+.admin-actions-trigger.admin-actions-trigger-icon > svg,
+.admin-actions-trigger.admin-actions-trigger-icon [data-flux-icon] {
+    margin: 0 !important;
+    flex-shrink: 0;
+}
+
+.admin-actions-trigger.admin-actions-trigger-circle {
+    border-radius: 9999px !important;
+}
+
+.admin-actions-trigger:hover {
+    color: rgb(39 39 42);
+    background: color-mix(in srgb, var(--admin-primary) 10%, transparent);
+}
+
+.dark .admin-actions-trigger {
+    color: rgb(161 161 170);
+}
+
+.dark .admin-actions-trigger:hover {
+    color: rgb(244 244 245);
+}
+
+/* Page header — breadcrumbs flush to top of main, title below */
+.admin-page-header {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1rem;
+}
+
+.admin-page-header-body {
+    padding-top: 0.75rem;
+}
+
+.admin-page-header-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+    .admin-page-header-row {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+}
+
+.admin-page-header-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.admin-page-header-copy [data-flux-heading] {
+    font-weight: 700 !important;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    color: rgb(24 24 27);
+    margin: 0 !important;
+}
+
+.dark .admin-page-header-copy [data-flux-heading] {
+    color: rgb(250 250 250);
+}
+
+.admin-page-header-copy [data-flux-heading][class*='text-2xl'],
+.admin-page-header-copy [data-flux-heading].text-2xl {
+    font-size: 1.5rem !important;
+    line-height: 1.2 !important;
+}
+
+@media (min-width: 1024px) {
+    .admin-page-header-copy [data-flux-heading][class*='text-2xl'],
+    .admin-page-header-copy [data-flux-heading].text-2xl {
+        font-size: 1.625rem !important;
+    }
+}
+
+.admin-page-header-copy [data-flux-subheading] {
+    margin: 0 !important;
+    font-size: 0.875rem;
+    line-height: 1.35;
+    color: rgb(113 113 122);
+    max-width: 42rem;
+}
+
+.dark .admin-page-header-copy [data-flux-subheading] {
+    color: rgb(161 161 170);
+}
+
+.admin-page-header-actions {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Full-width breadcrumb bar — bleeds to main edges (Flux main: p-6 / lg:p-8) */
+.admin-breadcrumbs.admin-breadcrumbs-bar {
+    display: block;
+    width: calc(100% + 3rem);
+    max-width: none;
+    margin-inline: -1.5rem;
+    margin-top: -1.5rem;
+    margin-bottom: 0;
+    background: color-mix(in srgb, var(--admin-surface-muted) 72%, var(--admin-surface));
+    border-bottom: 1px solid var(--admin-border);
+    box-shadow: none;
+}
+
+@media (min-width: 1024px) {
+    .admin-breadcrumbs.admin-breadcrumbs-bar {
+        width: calc(100% + 4rem);
+        margin-inline: -2rem;
+        margin-top: -2rem;
+    }
+}
+
+html[data-admin-layout='floating'] .admin-breadcrumbs.admin-breadcrumbs-bar {
+    border-top-left-radius: calc(var(--admin-radius) - 1px);
+    border-top-right-radius: calc(var(--admin-radius) - 1px);
+}
+
+.admin-breadcrumbs-trail {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.1rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.5rem 1.25rem;
+    list-style: none;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+@media (min-width: 1024px) {
+    .admin-breadcrumbs-trail {
+        padding-inline: 1.75rem;
+        padding-block: 0.55rem;
+    }
+}
+
+.admin-breadcrumbs-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.admin-breadcrumbs-sep {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: rgb(161 161 170);
+    margin-inline: 0.1rem;
+}
+
+.dark .admin-breadcrumbs-sep {
+    color: rgb(113 113 122);
+}
+
+.admin-breadcrumbs-link,
+.admin-breadcrumbs-current {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    max-width: 16rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 0.55rem;
+    font-size: 0.8125rem;
+    line-height: 1.15;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition:
+        background-color 160ms var(--admin-ease),
+        color 160ms var(--admin-ease),
+        box-shadow 160ms var(--admin-ease);
+}
+
+.admin-breadcrumbs-link {
+    color: rgb(82 82 91);
+}
+
+.admin-breadcrumbs-link:hover {
+    color: var(--admin-primary-content);
+    background: color-mix(in srgb, var(--admin-primary) 12%, transparent);
+}
+
+.admin-breadcrumbs-link:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--admin-primary) 45%, transparent);
+    outline-offset: 1px;
+}
+
+.dark .admin-breadcrumbs-link {
+    color: rgb(161 161 170);
+}
+
+.dark .admin-breadcrumbs-link:hover {
+    color: rgb(244 244 245);
+    background: color-mix(in srgb, var(--admin-primary) 18%, transparent);
+}
+
+.admin-breadcrumbs-current {
+    color: rgb(24 24 27);
+    font-weight: 600;
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+
+.dark .admin-breadcrumbs-current {
+    color: rgb(244 244 245);
+    background: color-mix(in srgb, var(--admin-surface) 88%, white);
+    border-color: var(--admin-border);
+}
+
+.admin-breadcrumbs-icon {
+    width: 0.95rem !important;
+    height: 0.95rem !important;
+    flex-shrink: 0;
+    opacity: 0.85;
+}
+
+.admin-breadcrumbs-link:hover .admin-breadcrumbs-icon {
+    opacity: 1;
+}
+
+.admin-breadcrumbs-current .admin-breadcrumbs-icon {
+    color: var(--admin-primary-content);
+    opacity: 1;
 }
 
 /* Popover menus (notifications, profile, group flyouts, etc.) — always render as a
@@ -353,20 +888,33 @@ html[data-admin-layout='floating'] body.admin-shell .admin-shell-frame {
         gap: 1rem;
     }
 
-    html[data-admin-layout='floating'] body.admin-shell [data-flux-sidebar] {
-        position: sticky;
-        top: 1rem;
-        max-height: calc(100dvh - 2rem);
+    /*
+        Floating sidebar sticky must be CSS-owned — Flux's sticky prop binds
+        top: $el.offsetTop which drifts after wire:navigate / appearance toggles
+        and leaves a large gap under the topbar.
+    */
+    html[data-admin-layout='floating'] body.admin-shell [data-flux-sidebar].admin-sidebar {
+        position: sticky !important;
+        top: 1rem !important;
+        align-self: start;
+        height: calc(100dvh - 2rem);
+        max-height: calc(100dvh - 2rem) !important;
+        min-height: 0;
         border-radius: var(--admin-radius);
         border: 1px solid var(--admin-border) !important;
         background: var(--admin-surface) !important;
         box-shadow: var(--admin-shadow);
-        overflow: visible;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        /* stashable leaves translate/transform classes that break position:sticky */
+        transform: none !important;
         transition:
             width var(--admin-duration) var(--admin-ease),
             box-shadow var(--admin-duration) var(--admin-ease),
             border-radius var(--admin-duration) var(--admin-ease),
-            background-color var(--admin-duration) var(--admin-ease);
+            background-color var(--admin-duration) var(--admin-ease),
+            border-color var(--admin-duration) var(--admin-ease);
     }
 
     html[data-admin-layout='floating'] body.admin-shell [data-flux-header].admin-topbar {
@@ -378,10 +926,13 @@ html[data-admin-layout='floating'] body.admin-shell .admin-shell-frame {
         margin-bottom: 0;
         min-height: 3.75rem;
         padding-inline: 0.75rem;
+        /* Keep topbar locked to the same floating inset as the sidebar */
+        top: 1rem;
         transition:
             box-shadow var(--admin-duration) var(--admin-ease),
             border-radius var(--admin-duration) var(--admin-ease),
-            background-color var(--admin-duration) var(--admin-ease);
+            background-color var(--admin-duration) var(--admin-ease),
+            border-color var(--admin-duration) var(--admin-ease);
     }
 
     html[data-admin-layout='floating'] body.admin-shell [data-flux-main].admin-main-surface {
@@ -393,7 +944,8 @@ html[data-admin-layout='floating'] body.admin-shell .admin-shell-frame {
         transition:
             box-shadow var(--admin-duration) var(--admin-ease),
             border-radius var(--admin-duration) var(--admin-ease),
-            background-color var(--admin-duration) var(--admin-ease);
+            background-color var(--admin-duration) var(--admin-ease),
+            border-color var(--admin-duration) var(--admin-ease);
     }
 }
 
@@ -409,6 +961,20 @@ html[data-admin-layout='attached'] body.admin-shell [data-flux-sidebar] {
     background: var(--admin-surface) !important;
     border-radius: 0;
     box-shadow: none;
+}
+
+@media (min-width: 1024px) {
+    html[data-admin-layout='attached'] body.admin-shell [data-flux-sidebar].admin-sidebar {
+        position: sticky !important;
+        top: 0 !important;
+        align-self: start;
+        height: 100dvh;
+        max-height: 100dvh !important;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        transform: none !important;
+    }
 }
 
 html[data-admin-layout='attached'] body.admin-shell [data-flux-header].admin-topbar {
@@ -860,8 +1426,32 @@ body.admin-shell [data-flux-sidebar].admin-sidebar {
     padding-inline-end: 0.55rem;
 }
 
-/* Plain (non-expandable) section headings — e.g. "MAIN", "SETTINGS" — purely
-   visual labels grouping related nav items, not clickable/collapsible. */
+/* Plain section headings — add via type: 'heading' in Navigation.php */
+.admin-nav .admin-nav-heading {
+    margin-top: 1rem;
+    padding: 0 0.75rem 0.4rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: rgb(161 161 170);
+}
+
+.admin-nav .admin-nav-heading.admin-nav-heading-first,
+.admin-nav .admin-nav-heading:first-child {
+    margin-top: 0;
+}
+
+.dark .admin-nav .admin-nav-heading {
+    color: rgb(113 113 122);
+}
+
+/* Hide section headings when the sidebar is collapsed to icons-only */
+html[data-sidebar-collapsed='true'] body.admin-shell .admin-nav-heading {
+    display: none !important;
+}
+
+/* Legacy class kept for safety if any old markup remains */
 .admin-nav .admin-nav-heading-group {
     margin-top: 1rem;
 }
@@ -883,15 +1473,10 @@ body.admin-shell [data-flux-sidebar].admin-sidebar {
     color: rgb(82 82 91) !important;
 }
 
-/* Hide section heading labels when the sidebar is collapsed to icons-only */
 html[data-sidebar-collapsed='true'] body.admin-shell .admin-nav-heading-group > div:first-child {
     display: none !important;
 }
 
-/* Flux hides the *entire* non-expandable group (icons included) when the
-   sidebar collapses to icons-only — we only want the text label to hide, so
-   force the group + its item list to stay visible and let the item-level
-   collapsed rules (icon-centering, etc.) handle the rest. */
 @media (min-width: 1024px) {
     html[data-sidebar-collapsed='true'] body.admin-shell .admin-nav .admin-nav-heading-group {
         display: flex !important;
@@ -989,7 +1574,7 @@ html[data-sidebar-collapsed='true'] body.admin-shell .admin-nav-heading-group > 
     /* superseded by rules above */
 }
 
-/* Richer motion */
+/* Richer motion — avoid transitioning transform on sticky chrome (breaks floating sidebar) */
 .admin-shell [data-flux-sidebar],
 .admin-shell [data-flux-header].admin-topbar,
 .admin-shell [data-flux-main].admin-main-surface {
@@ -999,8 +1584,7 @@ html[data-sidebar-collapsed='true'] body.admin-shell .admin-nav-heading-group > 
         border-radius 280ms var(--admin-ease),
         box-shadow 280ms var(--admin-ease),
         background-color 280ms var(--admin-ease),
-        border-color 280ms var(--admin-ease),
-        transform 280ms var(--admin-ease);
+        border-color 280ms var(--admin-ease);
 }
 
 .admin-card {
@@ -1024,9 +1608,13 @@ html[data-sidebar-collapsed='true'] body.admin-shell .admin-nav-heading-group > 
     transform: translateY(-1px);
 }
 
-/* Motion */
+/* Motion — full staggered entrance on first load only; SPA uses main-surface fade */
 .admin-fade-in {
     animation: adminFadeIn 420ms var(--admin-ease) both;
+}
+
+html[data-admin-nav="spa"] .admin-fade-in {
+    animation: none !important;
 }
 
 .admin-fade-in-delay-1 { animation-delay: 60ms; }
@@ -1569,6 +2157,7 @@ body.admin-shell .admin-search-input input {
     color: inherit;
 }
 
+
 .dark .admin-form-control .iti__tel-input,
 .dark .admin-form-control .flatpickr-input,
 .dark .admin-form-control .tagify,
@@ -1748,7 +2337,18 @@ span.flatpickr-weekday {
     --tags-border-color: rgb(228 228 231);
     --tag-bg: color-mix(in srgb, var(--admin-primary) 12%, white);
     --tag-text-color: var(--admin-primary-content);
+    --placeholder-color: rgb(113 113 122);
+    --placeholder-color-focus: rgb(161 161 170);
     padding: 0.25rem 0.4rem;
+}
+
+.dark .admin-form-control .tagify {
+    --tags-border-color: rgb(63 63 70);
+    --tag-bg: color-mix(in srgb, var(--admin-primary) 22%, transparent);
+    --tag-text-color: rgb(244 244 245);
+    --placeholder-color: rgb(255 255 255 / 0.85);
+    --placeholder-color-focus: rgb(255 255 255 / 0.55);
+    --input-color: rgb(244 244 245);
 }
 
 .admin-form-control .filepond--root {
@@ -1883,18 +2483,6 @@ span.flatpickr-weekday {
     color: rgb(212 212 216);
 }
 
-.admin-tiptap-btn-glyph {
-    font-size: 0.8rem;
-    font-weight: 700;
-}
-
-.admin-tiptap-quote-icon {
-    font-size: 1.05rem;
-    font-weight: 700;
-    font-family: Georgia, 'Times New Roman', serif;
-    line-height: 1;
-}
-
 .admin-tiptap-btn:hover {
     border-color: rgb(0 0 0 / 0.08);
     background: rgb(0 0 0 / 0.055);
@@ -1965,11 +2553,19 @@ span.flatpickr-weekday {
     padding: 0.9rem 1rem;
     font-size: 0.875rem;
     line-height: 1.65;
+    color: rgb(24 24 27);
+    background: white;
+}
+
+.dark .admin-tiptap-content {
+    color: rgb(244 244 245);
+    background: rgb(39 39 42);
 }
 
 .admin-tiptap-content .ProseMirror {
     outline: none;
     min-height: inherit;
+    color: inherit;
 }
 
 .admin-tiptap-content .ProseMirror p.is-editor-empty:first-child::before {
@@ -2000,6 +2596,10 @@ span.flatpickr-weekday {
     padding-inline-start: 0.85rem;
     color: rgb(113 113 122);
     font-style: italic;
+}
+
+.dark .admin-tiptap-content .ProseMirror blockquote {
+    color: rgb(161 161 170);
 }
 
 .admin-tiptap-content .ProseMirror pre {
@@ -2245,6 +2845,42 @@ span.flatpickr-weekday {
 
 .admin-swal-confirm:hover {
     filter: brightness(0.95);
+}
+
+.admin-swal-confirm-danger {
+    background: rgb(220 38 38);
+}
+
+.admin-swal-confirm-danger:hover {
+    filter: brightness(0.92);
+}
+
+.admin-swal-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--admin-radius-sm, 0.5rem);
+    background: rgb(244 244 245);
+    color: rgb(63 63 70);
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.55rem 1.1rem;
+    border: 1px solid rgb(228 228 231);
+    cursor: pointer;
+}
+
+.dark .admin-swal-cancel {
+    background: rgb(63 63 70);
+    color: rgb(228 228 231);
+    border-color: rgb(82 82 91);
+}
+
+.admin-swal-cancel:hover {
+    filter: brightness(0.97);
+}
+
+.admin-swal-actions {
+    gap: 0.75rem !important;
 }
 
 

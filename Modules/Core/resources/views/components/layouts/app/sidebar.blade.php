@@ -5,6 +5,9 @@
     $uiRadius = $prefs['ui_radius'] ?? 'xl';
     $navbarFixed = array_key_exists('navbar_fixed', $prefs) ? (bool) $prefs['navbar_fixed'] : true;
     $sidebarCollapsed = (bool) ($prefs['sidebar_collapsed'] ?? false);
+    $uiFont = $prefs['ui_font'] ?? 'instrument';
+    $canvas = $prefs['canvas'] ?? 'default';
+    $modalBlur = array_key_exists('modal_blur', $prefs) ? (bool) $prefs['modal_blur'] : true;
 @endphp
 <!DOCTYPE html>
 <html
@@ -14,6 +17,9 @@
     data-ui-radius="{{ $uiRadius }}"
     data-navbar-fixed="{{ $navbarFixed ? 'true' : 'false' }}"
     data-sidebar-collapsed="{{ $sidebarCollapsed ? 'true' : 'false' }}"
+    data-ui-font="{{ $uiFont }}"
+    data-canvas="{{ $canvas }}"
+    data-modal-blur="{{ $modalBlur ? 'true' : 'false' }}"
 >
     <head>
         @include('partials.head')
@@ -28,7 +34,6 @@
                 Collapse attribute is synced by AdminTheme JS from data-sidebar-collapsed.
             --}}
             <flux:sidebar
-                sticky
                 stashable
                 class="admin-sidebar !border-zinc-200 !bg-[var(--admin-surface)] dark:!border-zinc-700"
             >
@@ -98,7 +103,7 @@
 
                     <flux:tooltip :content="__('Credits')" position="top">
                         <a
-                            href="https://github.com/Jaikumar0101/StarterKitMaryUi"
+                            href="{{ config('app.credits_url') }}"
                             target="_blank"
                             rel="noopener"
                             class="admin-icon-btn admin-sidebar-footer-btn inline-flex items-center justify-center text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white"

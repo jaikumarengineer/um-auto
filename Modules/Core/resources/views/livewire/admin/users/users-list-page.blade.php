@@ -4,9 +4,10 @@ use Livewire\Volt\Component;
 use App\Models\User;
 use Livewire\Attributes\Layout;
 use Livewire\WithPagination;
+use App\Concerns\NotifiesWithSweetAlert;
 
 new #[Layout('core::layouts.app')] class extends Component {
-    use WithPagination;
+    use WithPagination, NotifiesWithSweetAlert;
 
     public string $search = '';
     public string $roleFilter = '';
@@ -58,12 +59,19 @@ new #[Layout('core::layouts.app')] class extends Component {
         $user = User::findOrFail($id);
 
         if ($user->id === auth()->id()) {
-            session()->flash('error', 'You cannot delete your own account.');
+            $this->dispatch(
+                'SweetMessage',
+                type: 'error',
+                title: __('Error'),
+                message: __('You cannot delete your own account.'),
+            );
+
             return;
         }
 
         $user->delete();
-        session()->flash('success', 'User deleted successfully.');
+
+        $this->notifySuccess(__('User deleted successfully.'));
     }
 
     public function toggleStatus(int $id): void
@@ -101,16 +109,21 @@ new #[Layout('core::layouts.app')] class extends Component {
 }; ?>
 
 <div>
-    {{-- Page Header --}}
-    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between admin-fade-in">
-        <div>
-            <flux:heading size="xl">{{ __('Users') }}</flux:heading>
-            <flux:subheading>{{ __('Manage all registered users.') }}</flux:subheading>
-        </div>
-        <flux:button icon="plus" variant="primary" :href="route('admin::users.create')" wire:navigate>
-            {{ __('Add User') }}
-        </flux:button>
-    </div>
+    <x-core::ui.page-header
+        class="admin-fade-in"
+        :title="__('Users')"
+        :subtitle="__('Manage all registered users.')"
+        :breadcrumbs="[
+            ['label' => __('Dashboard'), 'route' => 'admin::dashboard'],
+            ['label' => __('Users')],
+        ]"
+    >
+        <x-slot:actions>
+            <flux:button icon="plus" variant="primary" :href="route('admin::users.create')" wire:navigate>
+                {{ __('Add User') }}
+            </flux:button>
+        </x-slot:actions>
+    </x-core::ui.page-header>
 
     {{-- Flash Messages --}}
     @if (session('success'))
@@ -237,24 +250,40 @@ new #[Layout('core::layouts.app')] class extends Component {
                             </button>
                         </td>
                         <td class="px-4 py-3 text-right">
-                            <div class="flex items-center justify-end gap-2">
-                                <flux:button
-                                    size="sm"
-                                    variant="ghost"
-                                    icon="pencil-square"
-                                    :href="route('admin::users.edit', $user->id)"
-                                    wire:navigate
-                                    title="Edit"
-                                />
-                                <flux:button
-                                    size="sm"
-                                    variant="ghost"
-                                    icon="trash"
-                                    wire:click="deleteUser({{ $user->id }})"
-                                    wire:confirm="{{ __('Are you sure you want to delete this user?') }}"
-                                    class="text-red-500 hover:text-red-700"
-                                    title="Delete"
-                                />
+                            <div class="flex items-center justify-end">
+                                <x-core::ui.actions-menu>
+                                    <flux:menu.item
+                                        icon="pencil-square"
+                                        icon:variant="outline"
+                                        :href="route('admin::users.edit', $user->id)"
+                                        wire:navigate
+                                    >
+                                        {{ __('Edit') }}
+                                    </flux:menu.item>
+
+                                    <flux:menu.item
+                                        as="button"
+                                        type="button"
+                                        :icon="$user->is_active ? 'no-symbol' : 'check-circle'"
+                                        icon:variant="outline"
+                                        wire:click="toggleStatus({{ $user->id }})"
+                                    >
+                                        {{ $user->is_active ? __('Deactivate') : __('Activate') }}
+                                    </flux:menu.item>
+
+                                    <flux:menu.separator />
+
+                                    <x-core::ui.confirm-button
+                                        as="menu-item"
+                                        method="deleteUser"
+                                        :params="[$user->id]"
+                                        :title="__('Are you sure?')"
+                                        :text="__('Once deleted, you will not be able to recover this record!')"
+                                        :confirm-text="__('Yes, delete it!')"
+                                        :cancel-text="__('Cancel')"
+                                        :menu-label="__('Delete')"
+                                    />
+                                </x-core::ui.actions-menu>
                             </div>
                         </td>
                     </tr>

@@ -60,7 +60,12 @@ new #[Layout('core::layouts.app')] class extends Component {
             ]);
         }
 
-        $this->dispatch('toast', message: __('General settings updated successfully.'), type: 'success');
+        $this->dispatch(
+            'SweetMessage',
+            type: 'success',
+            title: __('Success'),
+            message: __('General settings updated successfully.'),
+        );
         $this->loadRequest();
     }
 
@@ -167,10 +172,15 @@ new #[Layout('core::layouts.app')] class extends Component {
 @endphp
 
 <div class="w-full space-y-6">
-    <div>
-        <flux:heading size="xl">{{ __('General Settings') }}</flux:heading>
-        <flux:subheading>{{ __('Configure website, company, social, and backend options.') }}</flux:subheading>
-    </div>
+    <x-core::ui.page-header
+        :title="__('General Settings')"
+        :subtitle="__('Configure website, company, social, and backend options.')"
+        :breadcrumbs="[
+            ['label' => __('Dashboard'), 'route' => 'admin::dashboard'],
+            ['label' => __('Settings')],
+            ['label' => __('General')],
+        ]"
+    />
 
     <form wire:submit="save" class="admin-card admin-settings-tabs overflow-hidden">
         <div class="border-b border-zinc-200 bg-[var(--admin-surface-muted)] px-5 py-4 sm:px-6 dark:border-zinc-700">

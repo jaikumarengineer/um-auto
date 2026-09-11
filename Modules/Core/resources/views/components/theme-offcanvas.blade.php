@@ -32,7 +32,7 @@
     <div class="flex h-full flex-col gap-6">
         <div>
             <flux:heading size="lg">{{ __('Theme studio') }}</flux:heading>
-            <flux:subheading>{{ __('Appearance, layout, corners, colors, and navbar behavior.') }}</flux:subheading>
+            <flux:subheading>{{ __('Appearance, layout, fonts, colors, and modal behavior.') }}</flux:subheading>
         </div>
 
         <section class="space-y-3">
@@ -98,6 +98,77 @@
                 >
                     <p class="text-sm font-medium">{{ __('Static') }}</p>
                     <p class="text-xs opacity-70">{{ __('Scrolls away') }}</p>
+                </button>
+            </div>
+        </section>
+
+        <section class="space-y-3">
+            <p class="text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Font') }}</p>
+            <div class="grid grid-cols-2 gap-2">
+                <template x-for="font in $store.adminTheme.fonts" :key="font.key">
+                    <button
+                        type="button"
+                        class="rounded-2xl border px-3 py-3 text-start transition"
+                        x-on:click="$store.adminTheme.setUiFont(font.key)"
+                        x-bind:class="$store.adminTheme.uiFont === font.key
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-zinc-200 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800'"
+                    >
+                        <p class="text-sm font-medium" x-text="font.label" x-bind:style="{ fontFamily: ({
+                            instrument: `'Instrument Sans', sans-serif`,
+                            lato: `'Lato', sans-serif`,
+                            inter: `'Inter', sans-serif`,
+                            nunito: `'Nunito', sans-serif`,
+                            'dm-sans': `'DM Sans', sans-serif`,
+                            'source-sans': `'Source Sans 3', sans-serif`,
+                        })[font.key] }"></p>
+                    </button>
+                </template>
+            </div>
+        </section>
+
+        <section class="space-y-3">
+            <p class="text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Body background') }}</p>
+            <div class="grid grid-cols-3 gap-2">
+                <template x-for="canvas in $store.adminTheme.canvases" :key="canvas.key">
+                    <button
+                        type="button"
+                        class="rounded-2xl border px-2 py-3 text-center transition"
+                        x-on:click="$store.adminTheme.setCanvas(canvas.key)"
+                        x-bind:class="$store.adminTheme.canvas === canvas.key
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-zinc-200 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800'"
+                    >
+                        <span class="text-[11px] font-semibold uppercase tracking-wide" x-text="canvas.label"></span>
+                    </button>
+                </template>
+            </div>
+        </section>
+
+        <section class="space-y-3">
+            <p class="text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Modals') }}</p>
+            <div class="grid grid-cols-2 gap-2">
+                <button
+                    type="button"
+                    class="rounded-2xl border px-3 py-3 text-start transition"
+                    x-on:click="$store.adminTheme.setModalBlur(true)"
+                    x-bind:class="$store.adminTheme.modalBlur
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-zinc-200 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800'"
+                >
+                    <p class="text-sm font-medium">{{ __('Blur backdrop') }}</p>
+                    <p class="text-xs opacity-70">{{ __('Frosted overlay') }}</p>
+                </button>
+                <button
+                    type="button"
+                    class="rounded-2xl border px-3 py-3 text-start transition"
+                    x-on:click="$store.adminTheme.setModalBlur(false)"
+                    x-bind:class="!$store.adminTheme.modalBlur
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-zinc-200 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800'"
+                >
+                    <p class="text-sm font-medium">{{ __('Solid dim') }}</p>
+                    <p class="text-xs opacity-70">{{ __('No blur') }}</p>
                 </button>
             </div>
         </section>

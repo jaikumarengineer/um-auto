@@ -168,6 +168,7 @@
 >
     <flux:modal
         name="admin-command-search"
+        :closable="false"
         class="admin-command-search !max-w-3xl !p-0 overflow-hidden dark:!bg-[var(--admin-surface)]"
     >
         <div

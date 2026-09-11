@@ -58,15 +58,25 @@ new #[Layout('core::layouts.app')] class extends Component {
             'favicon_path' => $this->favicon_path,
         ], 'website');
 
-        $this->dispatch('toast', message: __('Website settings saved.'), type: 'success');
+        $this->dispatch(
+            'SweetMessage',
+            type: 'success',
+            title: __('Success'),
+            message: __('Website settings saved.'),
+        );
     }
 }; ?>
 
 <div class="space-y-6">
-    <div>
-        <flux:heading size="xl">{{ __('Website Settings') }}</flux:heading>
-        <flux:subheading>{{ __('Branding, titles, and public meta.') }}</flux:subheading>
-    </div>
+    <x-core::ui.page-header
+        :title="__('Website Settings')"
+        :subtitle="__('Branding, titles, and public meta.')"
+        :breadcrumbs="[
+            ['label' => __('Dashboard'), 'route' => 'admin::dashboard'],
+            ['label' => __('Settings')],
+            ['label' => __('Website')],
+        ]"
+    />
 
     <form wire:submit="save" class="w-full space-y-6">
         <div class="admin-card overflow-hidden">
