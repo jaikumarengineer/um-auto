@@ -45,6 +45,16 @@ Route::group([
             Route::livewire('edit/{user_id}', 'admin.users.users-add-edit-page')->name('edit');
         });
 
+
+        Route::group([
+            'prefix'=>'grouping',
+            'as'=>'grouping.',
+        ],function () {
+              
+             Route::livewire('list', 'admin.grouping.country-list-page')->name('list');
+
+        });
+
         // Profile
         Route::livewire('profile', 'admin.settings.profile-page')->name('profile');
 

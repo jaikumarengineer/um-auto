@@ -41,6 +41,21 @@ class Navigation extends Component
                 'label' => __('Management'),
             ],
             [
+                'type' => 'group',
+                'heading' => __('Grouping'),
+                'icon' => 'globe-alt',
+                'expandable' => true,
+                'expanded' => request()->routeIs('admin::grouping.list'),
+                'children' => [
+                    [
+                        'label' => __('Country List'),
+                        'route' => 'admin::grouping.list',
+                        'icon' => 'globe-alt',
+                        'active' => request()->routeIs('admin::grouping.list'),
+                    ]
+                ],
+            ],
+            [
                 'label' => __('Users'),
                 'route' => 'admin::users.list',
                 'icon' => 'users',
