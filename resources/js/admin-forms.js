@@ -40,7 +40,7 @@ import { json } from '@codemirror/lang-json';
 import { oneDark } from '@codemirror/theme-one-dark';
 
 import 'select2/dist/css/select2.min.css';
-import 'multiple-select/dist/multiple-select.css';
+import 'multiple-select/dist/multiple-select.min.css';
 import 'intl-tel-input/styles';
 import '@yaireo/tagify/dist/tagify.css';
 import 'filepond/dist/filepond.min.css';

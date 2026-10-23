@@ -4,281 +4,299 @@
         @include('partials.head')
         <style>
             @keyframes admin-auth-float {
-                0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-                50% { transform: translate3d(0, -24px, 0) scale(1.06); }
+                0%, 100% { transform: perspective(1400px) rotateY(-12deg) rotateX(4deg) rotate(-2deg) translate3d(0, 8px, 0); }
+                50% { transform: perspective(1400px) rotateY(-12deg) rotateX(4deg) rotate(-2deg) translate3d(0, -10px, 0); }
+            }
+            @keyframes admin-auth-float-card {
+                0%, 100% { transform: translate3d(0, 0, 0); }
+                50% { transform: translate3d(0, -12px, 0); }
             }
             @keyframes admin-auth-fade-up {
-                from { opacity: 0; transform: translateY(10px); }
+                from { opacity: 0; transform: translateY(14px); }
                 to { opacity: 1; transform: translateY(0); }
             }
-
-            /* Base panel surface */
-            .admin-auth-panel {
-                background: linear-gradient(165deg, #f8fafc 0%, #eef6f5 45%, #edf0fc 100%);
-            }
-            .dark .admin-auth-panel {
-                background: #09090b;
+            @keyframes admin-auth-pulse-soft {
+                0%, 100% { opacity: 0.35; }
+                50% { opacity: 0.55; }
             }
 
-            /* Radial brand glows */
-            .admin-auth-glow-1 {
-                background: radial-gradient(ellipse 75% 60% at 15% 0%, color-mix(in srgb, var(--admin-primary) 20%, transparent), transparent);
+            .admin-auth-brand {
+                display: none;
+                background: linear-gradient(
+                    160deg,
+                    color-mix(in srgb, var(--admin-primary) 92%, white) 0%,
+                    var(--admin-primary) 42%,
+                    color-mix(in srgb, var(--admin-primary) 78%, #0b1b4a) 100%
+                );
             }
-            .dark .admin-auth-glow-1 {
-                background: radial-gradient(ellipse 75% 60% at 15% 0%, color-mix(in srgb, var(--admin-primary) 32%, transparent), transparent);
-            }
-            .admin-auth-glow-2 {
-                background: radial-gradient(ellipse 60% 50% at 100% 100%, rgb(99 102 241 / 0.12), transparent);
-            }
-            .dark .admin-auth-glow-2 {
-                background: radial-gradient(ellipse 60% 50% at 100% 100%, rgb(99 102 241 / 0.22), transparent);
-            }
-
-            /* Floating accent orbs */
-            .admin-auth-orb {
-                position: absolute;
-                border-radius: 9999px;
-                filter: blur(80px);
-                opacity: 0.16;
-                pointer-events: none;
-            }
-            .dark .admin-auth-orb {
-                opacity: 0.45;
-            }
-            .admin-auth-orb-1 {
-                top: -7rem;
-                left: -6rem;
-                height: 24rem;
-                width: 24rem;
-                background: var(--admin-primary, #0d9488);
-                animation: admin-auth-float 11s ease-in-out infinite;
-            }
-            .admin-auth-orb-2 {
-                bottom: -9rem;
-                right: -5rem;
-                height: 22rem;
-                width: 22rem;
-                background: #6366f1;
-                animation: admin-auth-float 13s ease-in-out infinite reverse;
+            @media (min-width: 1024px) {
+                .admin-auth-brand {
+                    display: flex;
+                    flex-direction: column;
+                }
             }
 
-            /* Faint grid */
-            .admin-auth-grid {
-                background-image:
-                    linear-gradient(to right, rgb(15 23 42 / 0.05) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgb(15 23 42 / 0.05) 1px, transparent 1px);
-                background-size: 42px 42px;
-                mask-image: radial-gradient(ellipse 80% 60% at 30% 20%, black 40%, transparent 90%);
-            }
-            .dark .admin-auth-grid {
-                background-image:
-                    linear-gradient(to right, rgb(255 255 255 / 0.06) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgb(255 255 255 / 0.06) 1px, transparent 1px);
+            .admin-auth-hex {
+                background-image: url("data:image/svg+xml,%3Csvg width='120' height='104' viewBox='0 0 120 104' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M60 2 L118 33 V71 L60 102 L2 71 V33 Z' fill='none' stroke='white' stroke-opacity='0.08' stroke-width='1.5'/%3E%3C/svg%3E");
+                background-size: 140px 122px;
+                animation: admin-auth-pulse-soft 8s ease-in-out infinite;
             }
 
-            /* Bottom fade so orbs/grid don't collide with the quote */
-            .admin-auth-fade {
-                background: linear-gradient(to top, #f8fafc, transparent);
-            }
-            .dark .admin-auth-fade {
-                background: linear-gradient(to top, #09090b, transparent);
-            }
-
-            /* Glass card + tiles (dashboard preview, feature tiles) */
-            .admin-auth-card {
-                border: 1px solid rgb(15 23 42 / 0.08);
-                background: rgb(255 255 255 / 0.72);
-                box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 24px 48px -24px rgb(15 23 42 / 0.18);
-            }
-            .dark .admin-auth-card {
-                border-color: rgb(255 255 255 / 0.1);
-                background: rgb(255 255 255 / 0.04);
-                box-shadow: 0 24px 48px -24px rgb(0 0 0 / 0.6);
-            }
-            .admin-auth-tile {
-                border: 1px solid rgb(15 23 42 / 0.07);
-                background: rgb(15 23 42 / 0.025);
-            }
-            .dark .admin-auth-tile {
-                border-color: rgb(255 255 255 / 0.1);
-                background: rgb(255 255 255 / 0.03);
+            .admin-auth-preview {
+                animation: admin-auth-float 7s ease-in-out infinite;
+                box-shadow:
+                    0 30px 60px -20px rgb(0 0 0 / 0.35),
+                    0 12px 24px -12px rgb(0 0 0 / 0.25);
             }
 
-            /* Brand-tinted icon badge (logo + feature icons) */
-            .admin-auth-icon-badge {
-                background: color-mix(in srgb, var(--admin-primary) 12%, white);
-                border: 1px solid color-mix(in srgb, var(--admin-primary) 22%, transparent);
-                color: var(--admin-primary);
-            }
-            .dark .admin-auth-icon-badge {
-                background: rgb(255 255 255 / 0.1);
-                border-color: rgb(255 255 255 / 0.15);
-                color: #ffffff;
-            }
-
-            /* Status + appearance pill buttons */
-            .admin-auth-pill {
-                border: 1px solid rgb(15 23 42 / 0.08);
-                background: rgb(255 255 255 / 0.6);
-                color: rgb(15 23 42 / 0.6);
-            }
-            .dark .admin-auth-pill {
-                border-color: rgb(255 255 255 / 0.12);
-                background: rgb(255 255 255 / 0.06);
-                color: rgb(255 255 255 / 0.7);
-            }
-
-            .admin-auth-divider {
-                background: linear-gradient(to right, transparent, rgb(15 23 42 / 0.12), transparent);
-            }
-            .dark .admin-auth-divider {
-                background: linear-gradient(to right, transparent, rgb(255 255 255 / 0.15), transparent);
+            .admin-auth-mini-card {
+                animation: admin-auth-float-card 5.5s ease-in-out infinite;
+                box-shadow: 0 16px 40px -16px rgb(0 0 0 / 0.35);
             }
 
             .admin-auth-enter {
-                animation: admin-auth-fade-up 0.6s ease-out both;
+                animation: admin-auth-fade-up 0.55s ease-out both;
             }
             .admin-auth-enter-1 { animation-delay: 0.05s; }
             .admin-auth-enter-2 { animation-delay: 0.15s; }
-            .admin-auth-enter-3 { animation-delay: 0.25s; }
-            .admin-auth-enter-4 { animation-delay: 0.35s; }
+            .admin-auth-enter-3 { animation-delay: 0.28s; }
+            .admin-auth-enter-4 { animation-delay: 0.4s; }
+
+            .admin-auth-form-shell {
+                max-width: 26rem;
+            }
+
+            .admin-auth-form-panel {
+                background: #ffffff;
+                color: #18181b;
+            }
+            .dark .admin-auth-form-panel {
+                background: #09090b;
+                color: #fafafa;
+            }
+            .admin-auth-form-panel .admin-auth-title {
+                color: #18181b;
+            }
+            .dark .admin-auth-form-panel .admin-auth-title {
+                color: #fafafa;
+            }
+            .admin-auth-form-panel .admin-auth-subtitle {
+                color: #71717a;
+            }
+            .dark .admin-auth-form-panel .admin-auth-subtitle {
+                color: #a1a1aa;
+            }
+            .admin-auth-form-panel .admin-auth-brand-link {
+                color: #18181b;
+            }
+            .dark .admin-auth-form-panel .admin-auth-brand-link {
+                color: #fafafa;
+            }
+
+            .admin-auth-input :is(input) {
+                border-radius: 0.75rem !important;
+                background: #f4f6fb !important;
+                border-color: transparent !important;
+                box-shadow: none !important;
+                min-height: 3rem;
+            }
+            .admin-auth-input :is(input):focus {
+                background: #eef2ff !important;
+                outline: 2px solid color-mix(in srgb, var(--admin-primary) 35%, transparent);
+                outline-offset: 0;
+            }
+            .dark .admin-auth-input :is(input) {
+                background: rgb(255 255 255 / 0.06) !important;
+                color: #f4f4f5;
+            }
+            .dark .admin-auth-input :is(input):focus {
+                background: rgb(255 255 255 / 0.09) !important;
+            }
+
+            .admin-auth-submit {
+                border-radius: 0.75rem !important;
+                min-height: 3rem;
+                font-weight: 600;
+                color: #ffffff !important;
+            }
+
             @media (prefers-reduced-motion: reduce) {
-                .admin-auth-orb { animation: none; }
-                .admin-auth-enter { animation: none; }
+                .admin-auth-preview,
+                .admin-auth-mini-card,
+                .admin-auth-hex,
+                .admin-auth-enter {
+                    animation: none;
+                }
             }
         </style>
     </head>
-    <body class="min-h-screen bg-white antialiased dark:bg-linear-to-b dark:from-neutral-950 dark:to-neutral-900">
-        <div class="relative grid h-dvh flex-col items-center justify-center px-8 sm:px-0 lg:max-w-none lg:grid-cols-2 lg:px-0">
+    <body class="min-h-screen bg-white antialiased dark:bg-zinc-950">
+        @php
+            $authTitle = setting('site_name', null, 'general')
+                ?: setting('site_title', null, 'website')
+                ?: setting('site_title', null, 'general')
+                ?: config('app.name', 'Laravel');
 
-            {{-- Left panel: modern gradient-mesh brand showcase (adapts to light/dark) --}}
-            <div class="admin-auth-panel relative hidden h-full flex-col justify-between overflow-hidden p-10 text-zinc-900 dark:text-white lg:flex">
+            $authLogoPath = setting('admin_logo', null, 'general')
+                ?: setting('logo_path', null, 'website')
+                ?: setting('site_logo', null, 'general');
 
-                {{-- Layered background: radial glow + grid + floating orbs --}}
-                <div class="pointer-events-none absolute inset-0">
-                    <div class="admin-auth-glow-1 absolute inset-0"></div>
-                    <div class="admin-auth-glow-2 absolute inset-0"></div>
-                    <div class="admin-auth-grid absolute inset-0"></div>
-                    <div class="admin-auth-orb admin-auth-orb-1"></div>
-                    <div class="admin-auth-orb admin-auth-orb-2"></div>
-                    <div class="admin-auth-fade absolute inset-0"></div>
+            $authLogoUrl = filled($authLogoPath) ? asset('storage/'.$authLogoPath) : null;
+        @endphp
+
+        <div class="relative grid min-h-dvh lg:grid-cols-2">
+
+            {{-- Left: authentication form --}}
+            <div class="admin-auth-form-panel relative flex min-h-dvh flex-col justify-center px-6 py-10 sm:px-10 lg:px-16 xl:px-24">
+                <div class="absolute right-6 top-6 z-20" x-data>
+                    <button
+                        type="button"
+                        class="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+                        x-on:click="$flux.appearance = ($flux.appearance === 'dark' ? 'light' : 'dark')"
+                        aria-label="{{ __('Toggle appearance') }}"
+                    >
+                        <flux:icon.moon variant="outline" class="size-4" x-show="$flux.appearance !== 'dark'" x-cloak />
+                        <flux:icon.sun variant="outline" class="size-4" x-show="$flux.appearance === 'dark'" x-cloak />
+                    </button>
                 </div>
 
-                {{-- Top: logo + status pill + appearance toggle --}}
-                <div class="admin-auth-enter admin-auth-enter-1 relative z-10 flex items-center justify-between gap-3">
-                    <a href="{{ url('/') }}" class="flex items-center gap-2.5 text-lg font-semibold tracking-tight" wire:navigate>
-                        <span class="admin-auth-icon-badge flex h-10 w-10 items-center justify-center rounded-xl backdrop-blur-sm">
-                            <x-app-logo-icon class="h-5 fill-current" />
-                        </span>
-                        {{ config('app.name', 'Laravel') }}
+                <div class="admin-auth-form-shell admin-auth-enter admin-auth-enter-1 mx-auto w-full">
+                    <a href="{{ url('/') }}" class="admin-auth-brand-link mb-10 flex justify-center" wire:navigate>
+                        @if ($authLogoUrl)
+                            <img
+                                src="{{ $authLogoUrl }}"
+                                alt="{{ $authTitle }}"
+                                class="h-12 w-auto max-w-[220px] object-contain"
+                            />
+                        @else
+                            <span class="text-center text-2xl font-bold tracking-tight">{{ $authTitle }}</span>
+                        @endif
                     </a>
-                    <div class="flex items-center gap-2">
-                        <span class="admin-auth-pill hidden items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium backdrop-blur-sm sm:inline-flex">
-                            <span class="size-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
-                            {{ __('All systems operational') }}
-                        </span>
-                        <div x-data>
-                            <button
-                                type="button"
-                                class="admin-auth-pill flex h-8 w-8 items-center justify-center rounded-full backdrop-blur-sm"
-                                x-on:click="$flux.appearance = ($flux.appearance === 'dark' ? 'light' : 'dark')"
-                                aria-label="{{ __('Toggle appearance') }}"
-                            >
-                                <flux:icon.moon variant="outline" class="size-4" x-show="$flux.appearance !== 'dark'" x-cloak />
-                                <flux:icon.sun variant="outline" class="size-4" x-show="$flux.appearance === 'dark'" x-cloak />
-                            </button>
-                        </div>
-                    </div>
-                </div>
 
-                {{-- Middle: headline + mock dashboard preview + features --}}
-                <div class="relative z-10 flex flex-1 flex-col justify-center gap-8 py-10">
-                    <div class="admin-auth-enter admin-auth-enter-2 max-w-md">
-                        <h1 class="text-3xl font-semibold leading-tight tracking-tight">
-                            {{ __('Run your workspace') }}<br />{{ __('with total clarity.') }}
-                        </h1>
-                        <p class="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-white/60">
-                            {{ __('One dashboard for users, settings, and content — fast, secure, and built to scale with your team.') }}
-                        </p>
-                    </div>
+                    <br><br>
 
-                    {{-- Mock dashboard preview card --}}
-                    <div class="admin-auth-enter admin-auth-enter-3 admin-auth-card relative rounded-2xl p-4 backdrop-blur-md">
-                        <div class="flex items-center gap-1.5 pb-3">
-                            <span class="size-2.5 rounded-full bg-red-400/70"></span>
-                            <span class="size-2.5 rounded-full bg-amber-400/70"></span>
-                            <span class="size-2.5 rounded-full bg-emerald-400/70"></span>
-                        </div>
-                        <div class="grid grid-cols-3 gap-3">
-                            @foreach ([
-                                ['label' => __('Active Users'), 'value' => '12.4k', 'trend' => '+18%'],
-                                ['label' => __('Revenue'), 'value' => '$48.2k', 'trend' => '+9%'],
-                                ['label' => __('Uptime'), 'value' => '99.9%', 'trend' => __('stable')],
-                            ] as $stat)
-                                <div class="admin-auth-tile rounded-xl p-3">
-                                    <p class="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-white/40">{{ $stat['label'] }}</p>
-                                    <p class="mt-1 text-lg font-semibold">{{ $stat['value'] }}</p>
-                                    <p class="mt-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">{{ $stat['trend'] }}</p>
-                                </div>
-                            @endforeach
-                        </div>
-                        <div class="admin-auth-tile mt-3 flex h-16 items-end gap-1.5 rounded-xl p-3">
-                            @foreach ([35, 55, 45, 70, 60, 90, 65, 80, 50, 85, 72, 100] as $bar)
-                                <span
-                                    class="flex-1 rounded-sm opacity-80"
-                                    style="height: {{ $bar }}%; background: linear-gradient(to top, color-mix(in srgb, var(--admin-primary) 55%, transparent), var(--admin-primary));"
-                                ></span>
-                            @endforeach
-                        </div>
-                    </div>
-
-                    {{-- Feature highlights --}}
-                    <div class="admin-auth-enter admin-auth-enter-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        @foreach ([
-                            ['icon' => 'bolt', 'title' => __('Lightning fast'), 'text' => __('Real-time reactivity with Livewire.')],
-                            ['icon' => 'shield-check', 'title' => __('Secure by default'), 'text' => __('Role-based access, full audit trail.')],
-                            ['icon' => 'chart-bar', 'title' => __('Rich analytics'), 'text' => __('Dashboards & reporting, ready to go.')],
-                        ] as $feature)
-                            <div class="admin-auth-tile rounded-xl p-3.5 backdrop-blur-sm">
-                                <span class="admin-auth-icon-badge flex size-8 items-center justify-center rounded-lg">
-                                    <flux:icon :icon="$feature['icon']" variant="outline" class="size-4" />
-                                </span>
-                                <p class="mt-2.5 text-sm font-semibold">{{ $feature['title'] }}</p>
-                                <p class="mt-0.5 text-xs leading-relaxed text-zinc-600 dark:text-white/50">{{ $feature['text'] }}</p>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-
-                {{-- Bottom: inspiring quote --}}
-                @php
-                    [$message, $author] = str(Illuminate\Foundation\Inspiring::quotes()->random())->explode('-');
-                @endphp
-                <div class="relative z-10">
-                    <div class="admin-auth-divider mb-4 h-px"></div>
-                    <blockquote class="flex items-start gap-2.5">
-                        <flux:icon.chat-bubble-left-right variant="outline" class="mt-0.5 size-4 shrink-0 text-zinc-400 dark:text-white/30" />
-                        <div>
-                            <p class="text-sm italic leading-relaxed text-zinc-600 dark:text-white/70">&ldquo;{{ trim($message) }}&rdquo;</p>
-                            <footer class="mt-1 text-xs font-medium text-zinc-400 dark:text-white/40">&mdash; {{ trim($author) }}</footer>
-                        </div>
-                    </blockquote>
+                    {{ $slot }}
                 </div>
             </div>
 
-            {{-- Right panel: auth form --}}
-            <div class="w-full lg:p-8">
-                <div class="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+            {{-- Right: brand showcase --}}
+            <div class="admin-auth-brand relative min-h-dvh overflow-hidden text-white">
+                <div class="admin-auth-hex pointer-events-none absolute inset-0"></div>
+                <div class="pointer-events-none absolute -left-24 top-16 h-72 w-72 rounded-full bg-white/10 blur-3xl"></div>
+                <div class="pointer-events-none absolute -right-16 bottom-10 h-80 w-80 rounded-full bg-black/10 blur-3xl"></div>
 
-                    {{-- Logo shown only on mobile (hidden on large screens where left panel shows it) --}}
-                    <a href="{{ url('/') }}" class="z-20 flex flex-col items-center gap-2 font-medium lg:hidden" wire:navigate>
-                        <span class="flex h-9 w-9 items-center justify-center rounded-md">
-                            <x-app-logo-icon class="size-9 fill-current text-black dark:text-white" />
-                        </span>
-                        <span class="sr-only">{{ config('app.name', 'Laravel') }}</span>
-                    </a>
+                {{-- Floating brand badge --}}
+                {{-- <div class="admin-auth-enter admin-auth-enter-2 absolute right-10 top-10 z-20 flex h-14 min-w-14 items-center justify-center rounded-2xl bg-white/15 px-3 shadow-lg backdrop-blur-md ring-1 ring-white/30">
+                    @if ($authLogoUrl)
+                        <img
+                            src="{{ $authLogoUrl }}"
+                            alt="{{ $authTitle }}"
+                            class="h-8 w-auto max-w-[96px] object-contain"
+                        />
+                    @else
+                        <span class="text-sm font-semibold tracking-tight">{{ \Illuminate\Support\Str::limit($authTitle, 12, '') }}</span>
+                    @endif
+                </div> --}}
 
-                    {{ $slot }}
+                <div class="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-10 pt-16">
+                    {{-- Dashboard preview --}}
+                    <div class="admin-auth-enter admin-auth-enter-3 relative w-full max-w-lg">
+                        <div class="admin-auth-preview relative rounded-2xl bg-white p-3 text-zinc-900">
+                            <div class="flex overflow-hidden rounded-xl border border-zinc-100 bg-zinc-50">
+                                {{-- Mini sidebar --}}
+                                <aside class="flex w-14 shrink-0 flex-col items-center gap-3 bg-zinc-900 py-4 text-white">
+                                    <span class="mb-2 flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-white/15">
+                                        @if ($authLogoUrl)
+                                            <img src="{{ $authLogoUrl }}" alt="" class="h-5 w-5 object-contain" />
+                                        @else
+                                            <span class="text-[11px] font-bold">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($authTitle, 0, 1)) }}</span>
+                                        @endif
+                                    </span>
+                                    @foreach (['home', 'chart-bar', 'arrows-right-left', 'wallet', 'cog-6-tooth'] as $navIcon)
+                                        <span @class([
+                                            'flex h-8 w-8 items-center justify-center rounded-lg',
+                                            'bg-[var(--admin-primary)] text-white' => $loop->first,
+                                            'text-white/55' => ! $loop->first,
+                                        ])>
+                                            <flux:icon :icon="$navIcon" variant="mini" class="size-4" />
+                                        </span>
+                                    @endforeach
+                                </aside>
+
+                                {{-- Main content --}}
+                                <div class="min-w-0 flex-1 p-4">
+                                    <div class="mb-3 flex items-center justify-between gap-3">
+                                        <div>
+                                            <p class="text-[10px] font-medium uppercase tracking-wide text-zinc-400">{{ __('Overview') }}</p>
+                                            <p class="text-sm font-semibold text-zinc-900">{{ __('Workspace dashboard') }}</p>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="hidden rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 sm:inline">+12.4%</span>
+                                            <span class="flex h-7 w-7 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--admin-primary)_15%,white)] text-[10px] font-bold text-[var(--admin-primary)]">AF</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-zinc-100">
+                                        <div class="mb-2 flex items-end justify-between">
+                                            <div>
+                                                <p class="text-[10px] text-zinc-400">{{ __('Active sessions') }}</p>
+                                                <p class="text-lg font-bold tracking-tight">12,478</p>
+                                            </div>
+                                            <p class="text-[10px] font-medium text-emerald-600">{{ __('Last 7 days') }}</p>
+                                        </div>
+                                        <svg viewBox="0 0 220 56" class="h-14 w-full" preserveAspectRatio="none" aria-hidden="true">
+                                            <defs>
+                                                <linearGradient id="adminAuthChartFill" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stop-color="var(--admin-primary)" stop-opacity="0.35" />
+                                                    <stop offset="100%" stop-color="var(--admin-primary)" stop-opacity="0" />
+                                                </linearGradient>
+                                            </defs>
+                                            <path d="M0 40 C30 36, 45 18, 70 22 C95 26, 110 44, 135 30 C160 16, 180 10, 220 14 L220 56 L0 56 Z" fill="url(#adminAuthChartFill)" />
+                                            <path d="M0 40 C30 36, 45 18, 70 22 C95 26, 110 44, 135 30 C160 16, 180 10, 220 14" fill="none" stroke="var(--admin-primary)" stroke-width="2.5" stroke-linecap="round" />
+                                        </svg>
+                                    </div>
+
+                                    <div class="grid grid-cols-3 gap-2">
+                                        @foreach ([
+                                            ['label' => __('Users'), 'value' => '2.4k'],
+                                            ['label' => __('Orders'), 'value' => '846'],
+                                            ['label' => __('Uptime'), 'value' => '99.9%'],
+                                        ] as $stat)
+                                            <div class="rounded-lg bg-white p-2 shadow-sm ring-1 ring-zinc-100">
+                                                <p class="text-[9px] uppercase tracking-wide text-zinc-400">{{ $stat['label'] }}</p>
+                                                <p class="mt-0.5 text-sm font-semibold">{{ $stat['value'] }}</p>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Floating mini metric card --}}
+                        <div class="admin-auth-mini-card absolute -left-4 bottom-6 z-20 w-40 rounded-xl bg-white p-3 text-zinc-900 ring-1 ring-black/5">
+                            <div class="flex items-center justify-between gap-2">
+                                <div>
+                                    <p class="text-[10px] font-semibold text-zinc-500">{{ __('Growth') }}</p>
+                                    <p class="text-sm font-bold">+24.8%</p>
+                                </div>
+                                <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                                    <flux:icon.arrow-trending-up variant="mini" class="size-4" />
+                                </span>
+                            </div>
+                            <svg viewBox="0 0 100 28" class="mt-2 h-7 w-full" preserveAspectRatio="none" aria-hidden="true">
+                                <path d="M0 22 C18 20, 28 8, 42 12 C56 16, 68 24, 82 10 C90 4, 96 6, 100 4" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-auth-enter admin-auth-enter-4 relative z-10 w-full shrink-0 px-10 pb-12 text-center">
+                    <h2 class="text-2xl font-semibold tracking-tight xl:text-3xl">
+                        {{ __('The easiest way to manage your workspace.') }}
+                    </h2>
+                    <p class="mt-2 text-sm text-white/75 xl:text-base">
+                        {{ __('Everything your team needs — in one clean dashboard.') }}
+                    </p>
                 </div>
             </div>
 
