@@ -12,8 +12,8 @@ use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
 
 new #[Layout(name: 'core::components.layouts.admin.auth')] class extends Component {
-    #[Validate('required|string|email')]
-    public string $email = '';
+    #[Validate('required|string')]
+    public string $username = '';
 
     #[Validate('required|string')]
     public string $password = '';
@@ -29,18 +29,18 @@ new #[Layout(name: 'core::components.layouts.admin.auth')] class extends Compone
 
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
+        if (! Auth::attempt(['username' => $this->username, 'password' => $this->password], $this->remember)) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'email' => __('auth.failed'),
+                'username' => __('auth.failed'),
             ]);
         }
 
         RateLimiter::clear($this->throttleKey());
         Session::regenerate();
 
-        $this->redirectIntended(default: route('admin::dashboard', absolute: false), navigate: true);
+        $this->redirectIntended(default: route(auth()->user()->adminHomeRoute(), absolute: false), navigate: true);
     }
 
     /**
@@ -57,7 +57,7 @@ new #[Layout(name: 'core::components.layouts.admin.auth')] class extends Compone
         $seconds = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'email' => __('auth.throttle', [
+            'username' => __('auth.throttle', [
                 'seconds' => $seconds,
                 'minutes' => ceil($seconds / 60),
             ]),
@@ -69,7 +69,7 @@ new #[Layout(name: 'core::components.layouts.admin.auth')] class extends Compone
      */
     protected function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->email).'|'.request()->ip());
+        return Str::transliterate(Str::lower($this->username).'|'.request()->ip());
     }
 }; ?>
 
@@ -79,7 +79,7 @@ new #[Layout(name: 'core::components.layouts.admin.auth')] class extends Compone
             {{ __('Log in to your account.') }}
         </h1>
         <p class="admin-auth-subtitle mt-2 text-sm leading-relaxed">
-            {{ __('Enter your email address and password to log in.') }}
+            {{ __('Enter your username and password to log in.') }}
         </p>
     </div>
 
@@ -88,19 +88,22 @@ new #[Layout(name: 'core::components.layouts.admin.auth')] class extends Compone
     <form wire:submit="login" class="flex flex-col gap-4">
         <div class="admin-auth-input">
             <flux:input
-                wire:model="email"
-                type="email"
-                icon="envelope"
+                wire:model="username"
+                name="username"
+                type="text"
+                icon="user"
                 required
                 autofocus
-                autocomplete="email"
-                :placeholder="__('Email Address')"
+                autocomplete="username"
+                :placeholder="__('Username')"
             />
+            <flux:error name="username" />
         </div>
 
         <div class="admin-auth-input">
             <flux:input
                 wire:model="password"
+                name="password"
                 type="password"
                 icon="lock-closed"
                 required
@@ -108,6 +111,7 @@ new #[Layout(name: 'core::components.layouts.admin.auth')] class extends Compone
                 :placeholder="__('Password')"
                 viewable
             />
+            <flux:error name="password" />
         </div>
 
         <div class="flex items-center justify-between gap-3 pt-0.5">

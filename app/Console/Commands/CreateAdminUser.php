@@ -53,7 +53,7 @@ class CreateAdminUser extends Command
                 'last_name' => ['nullable', 'string', 'max:255'],
                 'email' => ['required', 'email', 'max:255', Rule::unique(User::class, 'email')],
                 'password' => ['required', 'string', Password::defaults()],
-                'user_type' => ['required', 'string', Rule::in(array_keys(User::ADMIN_ROLES))],
+                'user_type' => ['required', 'string', Rule::in(array_keys(User::MASTER_ROLES))],
             ]
         );
 

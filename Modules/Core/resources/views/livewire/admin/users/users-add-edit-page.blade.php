@@ -20,6 +20,8 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public string $last_name = '';
 
+    public string $username = '';
+
     public string $email = '';
 
     public string $phone = '';
@@ -54,6 +56,7 @@ new #[Layout('core::layouts.app')] class extends Component {
             $this->userId = $user->id;
             $this->name = (string) $user->name;
             $this->last_name = (string) ($user->last_name ?? '');
+            $this->username = (string) ($user->username ?? '');
             $this->email = (string) $user->email;
             $this->phone = (string) ($user->phone ?? '');
             $this->country = (string) ($user->country ?? '');
@@ -67,6 +70,31 @@ new #[Layout('core::layouts.app')] class extends Component {
         }
     }
 
+    public function updatedName(): void
+    {
+        if (!$this->isEdit) {
+            $this->username = generateUserName(trim($this->name.' '.$this->last_name));
+        }
+    }
+
+    public function updatedLastName(): void
+    {
+        if (!$this->isEdit) {
+            $this->username = generateUserName(trim($this->name.' '.$this->last_name));
+        }
+    }
+
+    public function allowedRoles(): array
+    {
+        $roles = array_keys(User::assignableRoles());
+
+        if ($this->isEdit && $this->user_type !== '' && ! in_array($this->user_type, $roles, true)) {
+            $roles[] = $this->user_type;
+        }
+
+        return $roles;
+    }
+
     public function save(): void
     {
         $rules = [
@@ -78,13 +106,19 @@ new #[Layout('core::layouts.app')] class extends Component {
                 'max:255',
                 Rule::unique(User::class, 'email')->ignore($this->userId),
             ],
+            'username' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique(User::class, 'username')->ignore($this->userId),
+            ],
             'phone' => ['nullable', 'string', 'max:40'],
             'country' => ['nullable', 'string', 'max:100'],
             'state' => ['nullable', 'string', 'max:100'],
             'city' => ['nullable', 'string', 'max:100'],
             'zip_code' => ['nullable', 'string', 'max:30'],
             'address' => ['nullable', 'string', 'max:5000'],
-            'user_type' => ['required', 'string', Rule::in(array_keys(array_merge(User::ADMIN_ROLES, User::USER_ROLES)))],
+            'user_type' => ['required', 'string', Rule::in($this->allowedRoles())],
             'is_active' => ['boolean'],
             'image' => ['nullable', 'image', 'max:2048'],
         ];
@@ -98,6 +132,7 @@ new #[Layout('core::layouts.app')] class extends Component {
         $payload = [
             'name' => $this->name,
             'last_name' => $this->last_name ?: null,
+            'username' => $this->username,
             'email' => $this->email,
             'phone' => $this->phone ?: null,
             'country' => $this->country ?: null,
@@ -122,8 +157,6 @@ new #[Layout('core::layouts.app')] class extends Component {
             User::findOrFail($this->userId)->update($payload);
             $message = __('User updated successfully.');
         } else {
-            $fullName = trim($this->name.' '.($this->last_name ?? ''));
-            $payload['username'] = generateUserName($fullName);
             $payload['password'] = $payload['password'] ?? Hash::make($this->password);
             $user = User::create($payload);
             $this->userId = $user->id;
@@ -144,7 +177,11 @@ new #[Layout('core::layouts.app')] class extends Component {
 }; ?>
 
 @php
-    $roleOptions = array_merge(User::ADMIN_ROLES, User::USER_ROLES);
+    $roleOptions = User::assignableRoles();
+
+    if ($isEdit && $user_type !== '' && ! array_key_exists($user_type, $roleOptions)) {
+        $roleOptions = [$user_type => (User::allRoleLabels()[$user_type] ?? ucfirst($user_type))] + $roleOptions;
+    }
 
     $avatarSrc = $image_path
         ? (str_starts_with($image_path, 'http') || str_starts_with($image_path, 'data:')
@@ -204,8 +241,11 @@ new #[Layout('core::layouts.app')] class extends Component {
                     </div>
                 </div>
 
-                <flux:input wire:model="name" :label="__('First Name')" required autofocus autocomplete="given-name" />
-                <flux:input wire:model="last_name" :label="__('Last Name')" autocomplete="family-name" />
+                <flux:input wire:model.live="name" :label="__('First Name')" required autofocus autocomplete="given-name" />
+                <flux:input wire:model.live="last_name" :label="__('Last Name')" autocomplete="family-name" />
+                <div class="lg:col-span-2">
+                <flux:input wire:model="username" :label="__('Username')" required autocomplete="username" />
+                </div>
                 <flux:input wire:model="email" type="email" :label="__('Email')" required autocomplete="email" />
                 <x-core::forms.phone wire:model="phone" :label="__('Phone')" />
 

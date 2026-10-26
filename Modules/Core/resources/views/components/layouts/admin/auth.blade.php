@@ -3,31 +3,18 @@
     <head>
         @include('partials.head')
         <style>
-            @keyframes admin-auth-float {
-                0%, 100% { transform: perspective(1400px) rotateY(-12deg) rotateX(4deg) rotate(-2deg) translate3d(0, 8px, 0); }
-                50% { transform: perspective(1400px) rotateY(-12deg) rotateX(4deg) rotate(-2deg) translate3d(0, -10px, 0); }
-            }
-            @keyframes admin-auth-float-card {
-                0%, 100% { transform: translate3d(0, 0, 0); }
-                50% { transform: translate3d(0, -12px, 0); }
-            }
             @keyframes admin-auth-fade-up {
                 from { opacity: 0; transform: translateY(14px); }
                 to { opacity: 1; transform: translateY(0); }
             }
-            @keyframes admin-auth-pulse-soft {
-                0%, 100% { opacity: 0.35; }
-                50% { opacity: 0.55; }
+            @keyframes admin-auth-kenburns {
+                from { transform: scale(1.05); }
+                to { transform: scale(1.12); }
             }
 
             .admin-auth-brand {
                 display: none;
-                background: linear-gradient(
-                    160deg,
-                    color-mix(in srgb, var(--admin-primary) 92%, white) 0%,
-                    var(--admin-primary) 42%,
-                    color-mix(in srgb, var(--admin-primary) 78%, #0b1b4a) 100%
-                );
+                background: #0b1b4a;
             }
             @media (min-width: 1024px) {
                 .admin-auth-brand {
@@ -36,22 +23,15 @@
                 }
             }
 
-            .admin-auth-hex {
-                background-image: url("data:image/svg+xml,%3Csvg width='120' height='104' viewBox='0 0 120 104' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M60 2 L118 33 V71 L60 102 L2 71 V33 Z' fill='none' stroke='white' stroke-opacity='0.08' stroke-width='1.5'/%3E%3C/svg%3E");
-                background-size: 140px 122px;
-                animation: admin-auth-pulse-soft 8s ease-in-out infinite;
+            .admin-auth-slide {
+                opacity: 0;
+                transition: opacity 0.85s ease;
             }
-
-            .admin-auth-preview {
-                animation: admin-auth-float 7s ease-in-out infinite;
-                box-shadow:
-                    0 30px 60px -20px rgb(0 0 0 / 0.35),
-                    0 12px 24px -12px rgb(0 0 0 / 0.25);
+            .admin-auth-slide.is-active {
+                opacity: 1;
             }
-
-            .admin-auth-mini-card {
-                animation: admin-auth-float-card 5.5s ease-in-out infinite;
-                box-shadow: 0 16px 40px -16px rgb(0 0 0 / 0.35);
+            .admin-auth-slide.is-active img {
+                animation: admin-auth-kenburns 8s ease-out forwards;
             }
 
             .admin-auth-enter {
@@ -59,8 +39,6 @@
             }
             .admin-auth-enter-1 { animation-delay: 0.05s; }
             .admin-auth-enter-2 { animation-delay: 0.15s; }
-            .admin-auth-enter-3 { animation-delay: 0.28s; }
-            .admin-auth-enter-4 { animation-delay: 0.4s; }
 
             .admin-auth-form-shell {
                 max-width: 26rem;
@@ -105,12 +83,27 @@
                 outline: 2px solid color-mix(in srgb, var(--admin-primary) 35%, transparent);
                 outline-offset: 0;
             }
+            .admin-auth-input :is(input)[data-invalid],
+            .admin-auth-input :is(input)[aria-invalid="true"] {
+                border-color: #ef4444 !important;
+                background: #fef2f2 !important;
+                outline: 2px solid color-mix(in srgb, #ef4444 35%, transparent);
+                outline-offset: 0;
+            }
+            .admin-auth-input [data-flux-error] {
+                margin-top: 0.5rem;
+            }
             .dark .admin-auth-input :is(input) {
                 background: rgb(255 255 255 / 0.06) !important;
                 color: #f4f4f5;
             }
             .dark .admin-auth-input :is(input):focus {
                 background: rgb(255 255 255 / 0.09) !important;
+            }
+            .dark .admin-auth-input :is(input)[data-invalid],
+            .dark .admin-auth-input :is(input)[aria-invalid="true"] {
+                border-color: #f87171 !important;
+                background: rgb(239 68 68 / 0.12) !important;
             }
 
             .admin-auth-submit {
@@ -121,11 +114,11 @@
             }
 
             @media (prefers-reduced-motion: reduce) {
-                .admin-auth-preview,
-                .admin-auth-mini-card,
-                .admin-auth-hex,
-                .admin-auth-enter {
+                .admin-auth-enter,
+                .admin-auth-slide,
+                .admin-auth-slide.is-active img {
                     animation: none;
+                    transition: none;
                 }
             }
         </style>
@@ -166,7 +159,7 @@
                             <img
                                 src="{{ $authLogoUrl }}"
                                 alt="{{ $authTitle }}"
-                                class="h-12 w-auto max-w-[220px] object-contain"
+                                class="h-20 w-auto max-w-[300px] object-contain"
                             />
                         @else
                             <span class="text-center text-2xl font-bold tracking-tight">{{ $authTitle }}</span>
@@ -179,124 +172,138 @@
                 </div>
             </div>
 
-            {{-- Right: brand showcase --}}
-            <div class="admin-auth-brand relative min-h-dvh overflow-hidden text-white">
-                <div class="admin-auth-hex pointer-events-none absolute inset-0"></div>
-                <div class="pointer-events-none absolute -left-24 top-16 h-72 w-72 rounded-full bg-white/10 blur-3xl"></div>
-                <div class="pointer-events-none absolute -right-16 bottom-10 h-80 w-80 rounded-full bg-black/10 blur-3xl"></div>
+            {{-- Right: UM Auto plant slider --}}
+            @php
+                $plantSlides = [
+                    [
+                        'image' => asset('assets/auth/plants/manesar.jpg'),
+                        'title' => __('Manesar Plant'),
+                        'location' => __('IMT Manesar, Haryana'),
+                        'caption' => __('Precision auto components at our Manesar facility.'),
+                    ],
+                    [
+                        'image' => asset('assets/auth/plants/bhagwanpur.jpg'),
+                        'title' => __('Bhagwanpur Plant'),
+                        'location' => __('Bhagwanpur, Uttarakhand'),
+                        'caption' => __('World-class manufacturing in the foothills of Uttarakhand.'),
+                    ],
+                    [
+                        'image' => asset('assets/auth/plants/saharanpur.jpg'),
+                        'title' => __('Saharanpur Plant'),
+                        'location' => __('Saharanpur, Uttar Pradesh'),
+                        'caption' => __('High-volume production powering India’s automotive supply chain.'),
+                    ],
+                ];
+            @endphp
 
-                {{-- Floating brand badge --}}
-                {{-- <div class="admin-auth-enter admin-auth-enter-2 absolute right-10 top-10 z-20 flex h-14 min-w-14 items-center justify-center rounded-2xl bg-white/15 px-3 shadow-lg backdrop-blur-md ring-1 ring-white/30">
-                    @if ($authLogoUrl)
-                        <img
-                            src="{{ $authLogoUrl }}"
-                            alt="{{ $authTitle }}"
-                            class="h-8 w-auto max-w-[96px] object-contain"
-                        />
-                    @else
-                        <span class="text-sm font-semibold tracking-tight">{{ \Illuminate\Support\Str::limit($authTitle, 12, '') }}</span>
-                    @endif
-                </div> --}}
-
-                <div class="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-10 pt-16">
-                    {{-- Dashboard preview --}}
-                    <div class="admin-auth-enter admin-auth-enter-3 relative w-full max-w-lg">
-                        <div class="admin-auth-preview relative rounded-2xl bg-white p-3 text-zinc-900">
-                            <div class="flex overflow-hidden rounded-xl border border-zinc-100 bg-zinc-50">
-                                {{-- Mini sidebar --}}
-                                <aside class="flex w-14 shrink-0 flex-col items-center gap-3 bg-zinc-900 py-4 text-white">
-                                    <span class="mb-2 flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-white/15">
-                                        @if ($authLogoUrl)
-                                            <img src="{{ $authLogoUrl }}" alt="" class="h-5 w-5 object-contain" />
-                                        @else
-                                            <span class="text-[11px] font-bold">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($authTitle, 0, 1)) }}</span>
-                                        @endif
-                                    </span>
-                                    @foreach (['home', 'chart-bar', 'arrows-right-left', 'wallet', 'cog-6-tooth'] as $navIcon)
-                                        <span @class([
-                                            'flex h-8 w-8 items-center justify-center rounded-lg',
-                                            'bg-[var(--admin-primary)] text-white' => $loop->first,
-                                            'text-white/55' => ! $loop->first,
-                                        ])>
-                                            <flux:icon :icon="$navIcon" variant="mini" class="size-4" />
-                                        </span>
-                                    @endforeach
-                                </aside>
-
-                                {{-- Main content --}}
-                                <div class="min-w-0 flex-1 p-4">
-                                    <div class="mb-3 flex items-center justify-between gap-3">
-                                        <div>
-                                            <p class="text-[10px] font-medium uppercase tracking-wide text-zinc-400">{{ __('Overview') }}</p>
-                                            <p class="text-sm font-semibold text-zinc-900">{{ __('Workspace dashboard') }}</p>
-                                        </div>
-                                        <div class="flex items-center gap-2">
-                                            <span class="hidden rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 sm:inline">+12.4%</span>
-                                            <span class="flex h-7 w-7 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--admin-primary)_15%,white)] text-[10px] font-bold text-[var(--admin-primary)]">AF</span>
-                                        </div>
-                                    </div>
-
-                                    <div class="mb-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-zinc-100">
-                                        <div class="mb-2 flex items-end justify-between">
-                                            <div>
-                                                <p class="text-[10px] text-zinc-400">{{ __('Active sessions') }}</p>
-                                                <p class="text-lg font-bold tracking-tight">12,478</p>
-                                            </div>
-                                            <p class="text-[10px] font-medium text-emerald-600">{{ __('Last 7 days') }}</p>
-                                        </div>
-                                        <svg viewBox="0 0 220 56" class="h-14 w-full" preserveAspectRatio="none" aria-hidden="true">
-                                            <defs>
-                                                <linearGradient id="adminAuthChartFill" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stop-color="var(--admin-primary)" stop-opacity="0.35" />
-                                                    <stop offset="100%" stop-color="var(--admin-primary)" stop-opacity="0" />
-                                                </linearGradient>
-                                            </defs>
-                                            <path d="M0 40 C30 36, 45 18, 70 22 C95 26, 110 44, 135 30 C160 16, 180 10, 220 14 L220 56 L0 56 Z" fill="url(#adminAuthChartFill)" />
-                                            <path d="M0 40 C30 36, 45 18, 70 22 C95 26, 110 44, 135 30 C160 16, 180 10, 220 14" fill="none" stroke="var(--admin-primary)" stroke-width="2.5" stroke-linecap="round" />
-                                        </svg>
-                                    </div>
-
-                                    <div class="grid grid-cols-3 gap-2">
-                                        @foreach ([
-                                            ['label' => __('Users'), 'value' => '2.4k'],
-                                            ['label' => __('Orders'), 'value' => '846'],
-                                            ['label' => __('Uptime'), 'value' => '99.9%'],
-                                        ] as $stat)
-                                            <div class="rounded-lg bg-white p-2 shadow-sm ring-1 ring-zinc-100">
-                                                <p class="text-[9px] uppercase tracking-wide text-zinc-400">{{ $stat['label'] }}</p>
-                                                <p class="mt-0.5 text-sm font-semibold">{{ $stat['value'] }}</p>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            </div>
+            <div
+                class="admin-auth-brand relative min-h-dvh overflow-hidden text-white"
+                x-data="{
+                    active: 0,
+                    total: {{ count($plantSlides) }},
+                    timer: null,
+                    start() {
+                        this.stop();
+                        this.timer = setInterval(() => { this.next(); }, 5500);
+                    },
+                    stop() {
+                        if (this.timer) clearInterval(this.timer);
+                    },
+                    next() {
+                        this.active = (this.active + 1) % this.total;
+                    },
+                    prev() {
+                        this.active = (this.active - 1 + this.total) % this.total;
+                    },
+                    go(index) {
+                        this.active = index;
+                        this.start();
+                    }
+                }"
+                x-init="start()"
+                x-on:mouseenter="stop()"
+                x-on:mouseleave="start()"
+                role="region"
+                aria-roledescription="carousel"
+                aria-label="{{ __('UM Auto plants') }}"
+            >
+                <div class="absolute inset-0">
+                    @foreach ($plantSlides as $index => $slide)
+                        <div
+                            class="admin-auth-slide absolute inset-0 {{ $index === 0 ? 'is-active' : '' }}"
+                            :class="{ 'is-active': active === {{ $index }} }"
+                            x-bind:aria-hidden="active !== {{ $index }}"
+                        >
+                            <img
+                                src="{{ $slide['image'] }}"
+                                alt="{{ $slide['title'] }}"
+                                class="h-full w-full object-cover"
+                                @if ($index === 0) fetchpriority="high" @else loading="lazy" @endif
+                            />
                         </div>
-
-                        {{-- Floating mini metric card --}}
-                        <div class="admin-auth-mini-card absolute -left-4 bottom-6 z-20 w-40 rounded-xl bg-white p-3 text-zinc-900 ring-1 ring-black/5">
-                            <div class="flex items-center justify-between gap-2">
-                                <div>
-                                    <p class="text-[10px] font-semibold text-zinc-500">{{ __('Growth') }}</p>
-                                    <p class="text-sm font-bold">+24.8%</p>
-                                </div>
-                                <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                                    <flux:icon.arrow-trending-up variant="mini" class="size-4" />
-                                </span>
-                            </div>
-                            <svg viewBox="0 0 100 28" class="mt-2 h-7 w-full" preserveAspectRatio="none" aria-hidden="true">
-                                <path d="M0 22 C18 20, 28 8, 42 12 C56 16, 68 24, 82 10 C90 4, 96 6, 100 4" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" />
-                            </svg>
-                        </div>
-                    </div>
+                    @endforeach
                 </div>
 
-                <div class="admin-auth-enter admin-auth-enter-4 relative z-10 w-full shrink-0 px-10 pb-12 text-center">
-                    <h2 class="text-2xl font-semibold tracking-tight xl:text-3xl">
-                        {{ __('The easiest way to manage your workspace.') }}
-                    </h2>
-                    <p class="mt-2 text-sm text-white/75 xl:text-base">
-                        {{ __('Everything your team needs — in one clean dashboard.') }}
-                    </p>
+                <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/15"></div>
+                <div class="pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-black/20 to-transparent"></div>
+
+                <div class="relative z-10 flex h-full min-h-dvh flex-col justify-end px-10 pb-12 pt-16">
+                    <div class="admin-auth-enter admin-auth-enter-2 max-w-xl">
+                        @foreach ($plantSlides as $index => $slide)
+                            <div
+                                @if ($index !== 0) x-cloak @endif
+                                x-show="active === {{ $index }}"
+                                x-transition.opacity.duration.400ms
+                            >
+                                <p class="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/70">
+                                    {{ __('UM Auto plants') }}
+                                </p>
+                                <h2 class="text-3xl font-semibold tracking-tight xl:text-4xl">
+                                    {{ $slide['title'] }}
+                                </h2>
+                                <p class="mt-1 text-sm font-medium text-[color-mix(in_srgb,var(--admin-primary)_55%,white)]">
+                                    {{ $slide['location'] }}
+                                </p>
+                                <p class="mt-3 max-w-md text-sm leading-relaxed text-white/80 xl:text-base">
+                                    {{ $slide['caption'] }}
+                                </p>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <div class="mt-8 flex items-center justify-between gap-4">
+                        <div class="flex items-center gap-2" role="tablist" aria-label="{{ __('Plant slides') }}">
+                            @foreach ($plantSlides as $index => $slide)
+                                <button
+                                    type="button"
+                                    class="h-2.5 rounded-full transition-all duration-300"
+                                    :class="active === {{ $index }} ? 'w-8 bg-white' : 'w-2.5 bg-white/40 hover:bg-white/70'"
+                                    x-on:click="go({{ $index }})"
+                                    :aria-selected="active === {{ $index }}"
+                                    aria-label="{{ __('Show :plant', ['plant' => $slide['title']]) }}"
+                                ></button>
+                            @endforeach
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="button"
+                                class="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white backdrop-blur-sm transition hover:bg-white/20"
+                                x-on:click="prev(); start()"
+                                aria-label="{{ __('Previous plant') }}"
+                            >
+                                <flux:icon.chevron-left variant="mini" class="size-5" />
+                            </button>
+                            <button
+                                type="button"
+                                class="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white backdrop-blur-sm transition hover:bg-white/20"
+                                x-on:click="next(); start()"
+                                aria-label="{{ __('Next plant') }}"
+                            >
+                                <flux:icon.chevron-right variant="mini" class="size-5" />
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 

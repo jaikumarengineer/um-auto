@@ -17,6 +17,7 @@ return [
         resource_path('views/components'),
         resource_path('views/livewire'),
         base_path('Modules/Core/resources/views/livewire'),
+        base_path('Modules/Quality/resources/views/livewire'),
     ],
 
     /*
@@ -120,6 +121,7 @@ return [
     'view_path' => [
         resource_path('views/livewire'),
         base_path('Modules/Core/resources/views/livewire'),
+        base_path('Modules/Quality/resources/views/livewire'),
     ],
 
     /*

@@ -67,3 +67,18 @@ if (! function_exists('setting_json_decode')) {
         return [];
     }
 }
+
+if (! function_exists('admin_breadcrumb_home')) {
+    /**
+     * @return array{label: string, route: string}
+     */
+    function admin_breadcrumb_home(): array
+    {
+        $user = auth()->user();
+
+        return [
+            'label' => $user?->isMaster() ? __('Dashboard') : __('Home'),
+            'route' => $user?->adminHomeRoute() ?? 'admin::dashboard',
+        ];
+    }
+}

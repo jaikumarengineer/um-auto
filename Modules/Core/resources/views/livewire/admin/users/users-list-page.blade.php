@@ -16,7 +16,7 @@ new #[Layout('core::layouts.app')] class extends Component {
     public string $sortBy = 'id';
     public string $sortDirection = 'desc';
 
-    protected array $sortable = ['id', 'name', 'email', 'user_type', 'is_active', 'created_at'];
+    protected array $sortable = ['id', 'name', 'username', 'email', 'user_type', 'is_active', 'created_at'];
 
     public function mount(): void
     {
@@ -147,7 +147,7 @@ new #[Layout('core::layouts.app')] class extends Component {
             <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:shrink-0 lg:items-center">
                 <flux:select wire:model.live="roleFilter" class="w-full lg:w-40">
                     <flux:select.option value="">{{ __('All Roles') }}</flux:select.option>
-                    @foreach (array_merge(App\Models\User::ADMIN_ROLES, App\Models\User::USER_ROLES) as $key => $label)
+                    @foreach (App\Models\User::allRoleLabels() as $key => $label)
                         <flux:select.option value="{{ $key }}">{{ $label }}</flux:select.option>
                     @endforeach
                 </flux:select>
@@ -176,6 +176,7 @@ new #[Layout('core::layouts.app')] class extends Component {
                         $headers = [
                             'id' => ['label' => '#', 'align' => 'left'],
                             'name' => ['label' => __('Name'), 'align' => 'left'],
+                            'username' => ['label' => __('Username'), 'align' => 'left'],
                             'email' => ['label' => __('Email'), 'align' => 'left'],
                             'user_type' => ['label' => __('Role'), 'align' => 'left'],
                             'is_active' => ['label' => __('Status'), 'align' => 'center'],
@@ -220,15 +221,18 @@ new #[Layout('core::layouts.app')] class extends Component {
                                 </div>
                             </div>
                         </td>
+                        <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">{{ $user->username }}</td>
                         <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">{{ $user->email }}</td>
                         <td class="px-4 py-3">
                             @php
-                                $allRoles = array_merge(App\Models\User::ADMIN_ROLES, App\Models\User::USER_ROLES);
+                                $allRoles = App\Models\User::allRoleLabels();
                                 $roleLabel = $allRoles[$user->user_type] ?? ucfirst($user->user_type ?? 'user');
                                 $roleColor = match($user->user_type) {
                                     'admin'     => 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
                                     'sub_admin' => 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
                                     'staff'     => 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+                                    'purchase'  => 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+                                    'incoming'  => 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
                                     default     => 'bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300',
                                 };
                             @endphp

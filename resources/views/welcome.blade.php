@@ -21,18 +21,12 @@
         <div class="box">
             <h1>{{ config('app.name') }}</h1>
             <p>
-                @if (Route::has('home'))
+                @if (Route::has('admin::login'))
+                    <a href="{{ route('admin::login') }}">{{ __('Admin login') }}</a>
+                @elseif (Route::has('home'))
                     <a href="{{ route('home') }}">{{ __('Go to home') }}</a>
                 @else
                     <a href="{{ url('/') }}">{{ __('Go to home') }}</a>
-                @endif
-                @if (Route::has('login'))
-                    <span class="sep">·</span>
-                    <a href="{{ route('login') }}">{{ __('Log in') }}</a>
-                @endif
-                @if (Route::has('admin::login'))
-                    <span class="sep">·</span>
-                    <a href="{{ route('admin::login') }}">{{ __('Admin') }}</a>
                 @endif
             </p>
         </div>

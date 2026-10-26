@@ -15,7 +15,7 @@ return [
     'admin_route_prefix' => env('ADMIN_ROUTE_PREFIX', 'admin'),
 
     'home_route' => 'home',
-    'auth_login_route' => 'login',
+    'auth_login_route' => 'admin::login',
     'auth_dashboard_route' => 'dashboard',
 
 ];

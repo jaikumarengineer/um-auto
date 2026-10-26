@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -12,13 +13,26 @@ use Laravolt\Avatar\Facade as Avatar;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
 
-    const ADMIN_ROLES = [
-        'admin' => 'Admin',
+    const MASTER_ROLES = [
+        'admin' => 'Master admin',
         'sub_admin' => 'Sub Admin',
         'staff' => 'Staff',
+    ];
+
+    const DEPARTMENT_ROLES = [
+        'purchase' => 'Purchase department',
+        'incoming' => 'Incoming department',
+    ];
+
+    const ADMIN_ROLES = [
+        'admin' => 'Master admin',
+        'sub_admin' => 'Sub Admin',
+        'staff' => 'Staff',
+        'purchase' => 'Purchase department',
+        'incoming' => 'Incoming department',
     ];
 
     const USER_ROLES = [
@@ -113,14 +127,61 @@ class User extends Authenticatable
         return Avatar::create($this->full_name)->toBase64();
     }
 
+    public static function assignableRoles(): array
+    {
+        return [
+            'admin' => __('Master admin'),
+            'purchase' => __('Purchase department'),
+            'incoming' => __('Incoming department'),
+        ];
+    }
+
+    public static function allRoleLabels(): array
+    {
+        return array_merge(self::MASTER_ROLES, self::DEPARTMENT_ROLES, self::USER_ROLES);
+    }
+
     public function isAdmin(): bool
     {
-        return in_array($this->user_type, array_keys(self::ADMIN_ROLES));
+        return $this->isMaster() || $this->isPurchase() || $this->isIncoming();
+    }
+
+    public function isMaster(): bool
+    {
+        return in_array($this->user_type, array_keys(self::MASTER_ROLES), true);
+    }
+
+    public function isPurchase(): bool
+    {
+        return $this->user_type === 'purchase';
+    }
+
+    public function isIncoming(): bool
+    {
+        return $this->user_type === 'incoming';
     }
 
     public function isUser(): bool
     {
-        return in_array($this->user_type, array_keys(self::USER_ROLES));
+        return in_array($this->user_type, array_keys(self::USER_ROLES), true);
+    }
+
+    public function adminHomeRoute(): string
+    {
+        return match (true) {
+            $this->isPurchase() => 'admin::quality.purchase.orders',
+            $this->isIncoming() => 'admin::quality.incoming.vendors',
+            default => 'admin::dashboard',
+        };
+    }
+
+    public function qualityAudience(): string
+    {
+        return match (true) {
+            $this->isPurchase() && ! $this->isMaster() => 'purchase',
+            $this->isIncoming() && ! $this->isMaster() => 'incoming',
+            default => 'master',
+        };
     }
 
     /**
@@ -134,5 +195,4 @@ class User extends Authenticatable
             ->map(fn ($word) => Str::substr($word, 0, 1))
             ->implode('');
     }
-
 }

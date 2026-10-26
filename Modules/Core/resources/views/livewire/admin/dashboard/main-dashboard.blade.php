@@ -9,7 +9,7 @@ new #[Layout('core::layouts.app')] class extends Component {
     {
         $totalUsers = User::query()->count();
         $activeUsers = User::query()->where('is_active', true)->count();
-        $adminUsers = User::query()->whereIn('user_type', array_keys(User::ADMIN_ROLES))->count();
+        $adminUsers = User::query()->whereIn('user_type', array_keys(User::MASTER_ROLES))->count();
         $newThisWeek = User::query()->where('created_at', '>=', now()->subWeek())->count();
 
         $recentUsers = User::query()

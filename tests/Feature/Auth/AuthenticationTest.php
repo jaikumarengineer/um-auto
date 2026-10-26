@@ -3,23 +3,31 @@
 use App\Models\User;
 use Livewire\Volt\Volt as LivewireVolt;
 
-test('login screen can be rendered', function () {
+test('login redirects to admin auth', function () {
     $response = $this->get('/login');
 
-    $response->assertStatus(200);
+    $response->assertRedirect(route('admin::login'));
 });
 
-test('users can authenticate using the login screen', function () {
-    $user = User::factory()->create();
+test('home redirects to admin auth', function () {
+    $response = $this->get('/');
 
-    $response = LivewireVolt::test('auth.login')
+    $response->assertRedirect('/admin/login');
+});
+
+test('users can authenticate using the admin login screen', function () {
+    $user = User::factory()->create([
+        'user_type' => 'admin',
+    ]);
+
+    $response = LivewireVolt::test('admin.auth.login')
         ->set('email', $user->email)
         ->set('password', 'password')
         ->call('login');
 
     $response
         ->assertHasNoErrors()
-        ->assertRedirect(route('dashboard', absolute: false));
+        ->assertRedirect(route($user->adminHomeRoute(), absolute: false));
 
     $this->assertAuthenticated();
 });
@@ -27,7 +35,7 @@ test('users can authenticate using the login screen', function () {
 test('users can not authenticate with invalid password', function () {
     $user = User::factory()->create();
 
-    $response = LivewireVolt::test('auth.login')
+    $response = LivewireVolt::test('admin.auth.login')
         ->set('email', $user->email)
         ->set('password', 'wrong-password')
         ->call('login');
@@ -42,7 +50,7 @@ test('users can logout', function () {
 
     $response = $this->actingAs($user)->post('/logout');
 
-    $response->assertRedirect('/');
+    $response->assertRedirect(route('admin::login'));
 
     $this->assertGuest();
 });

@@ -31,7 +31,7 @@
     $navComponent = new \Modules\Core\View\Components\Layouts\App\Navigation;
     $navItems = $flatten($navComponent->navigationItems);
 
-    $catalog = array_values(array_merge([
+    $masterSuggestions = auth()->user()?->isMaster() ? [
         [
             'label' => __('Dashboard'),
             'group' => __('Suggestions'),
@@ -57,6 +57,17 @@
             'action' => null,
         ],
         [
+            'label' => __('General settings'),
+            'group' => __('Settings'),
+            'icon' => 'adjustments-horizontal',
+            'href' => route('admin::settings.general'),
+            'keywords' => 'general settings',
+            'action' => null,
+        ],
+    ] : [];
+
+    $catalog = array_values(array_merge($masterSuggestions, [
+        [
             'label' => __('Theme studio'),
             'group' => __('Suggestions'),
             'icon' => 'swatch',
@@ -70,14 +81,6 @@
             'icon' => 'user-circle',
             'href' => route('admin::profile'),
             'keywords' => 'account profile password avatar',
-            'action' => null,
-        ],
-        [
-            'label' => __('General settings'),
-            'group' => __('Settings'),
-            'icon' => 'adjustments-horizontal',
-            'href' => route('admin::settings.general'),
-            'keywords' => 'general settings',
             'action' => null,
         ],
     ], $navItems));

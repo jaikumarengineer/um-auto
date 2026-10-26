@@ -6,11 +6,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
 
-    Route::livewire('login', 'auth.login')
-        ->name('login');
-
-    Route::livewire('register', 'auth.register')
-        ->name('register');
+    // Frontend login/register removed — admin auth is the app entry point.
+    Route::get('login', function () {
+        return redirect()->route('admin::login');
+    })->name('login');
 
     Route::livewire('forgot-password', 'auth.forgot-password')
         ->name('password.request');

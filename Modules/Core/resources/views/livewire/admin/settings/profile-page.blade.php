@@ -162,7 +162,7 @@ new #[Layout('core::layouts.app')] class extends Component {
 
 @php
     $user = auth()->user();
-    $roleLabels = array_merge(User::ADMIN_ROLES, User::USER_ROLES);
+    $roleLabels = User::allRoleLabels();
     $roleLabel = $roleLabels[$user->user_type ?? ''] ?? ucfirst((string) ($user->user_type ?? 'User'));
 
     $avatarSrc = $image_path

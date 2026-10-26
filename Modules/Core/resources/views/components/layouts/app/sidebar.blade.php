@@ -41,20 +41,28 @@
                     <flux:sidebar.toggle class="admin-sidebar-close lg:hidden" icon="x-mark" />
 
                     <a
-                        href="{{ route('admin::dashboard') }}"
+                        href="{{ route(auth()->user()?->adminHomeRoute() ?? 'admin::dashboard') }}"
                         class="admin-sidebar-brand"
                         wire:navigate
                     >
                         <span class="admin-sidebar-brand-mark">
-                            <x-app-logo-icon class="size-6 fill-current text-white dark:text-black" />
+                            @php
+                                $logoPath = setting('admin_logo', null, 'general');
+                                $logoUrl = filled($logoPath) ? asset('storage/'.$logoPath) : null;
+                            @endphp
+                            @if ($logoUrl)
+                                <img src="{{ $logoUrl }}" alt="{{ config('settings.site_name') }}" class="h-full w-full object-contain" />
+                            @else
+                                <x-app-logo-icon class="size-12" />
+                            @endif
                         </span>
-                        <span class="admin-sidebar-brand-name">
+                        {{-- <span class="admin-sidebar-brand-name">
                             {{ config('settings.site_name') ?: config('app.name') }}
-                        </span>
+                        </span> --}}
                     </a>
 
                     <a
-                        href="{{ route('admin::dashboard') }}"
+                        href="{{ route(auth()->user()?->adminHomeRoute() ?? 'admin::dashboard') }}"
                         class="admin-sidebar-mark"
                         wire:navigate
                         title="{{ config('app.name') }}"
@@ -66,8 +74,9 @@
                 <x-core::layouts.app.navigation />
 
                 <flux:spacer />
+                <flux:spacer />
 
-                <div class="admin-sidebar-footer flex items-center justify-between gap-1">
+                <div class="admin-sidebar-footer flex items-center justify-between gap-1 hidden">
                     <flux:tooltip :content="__('Help')" position="top">
                         <a
                             href="{{ route('admin::documentation.help') }}"
