@@ -7,6 +7,7 @@
 @source '../../vendor/livewire/flux-pro/stubs/**/*.blade.php';
 @source '../../vendor/livewire/flux/stubs/**/*.blade.php';
 
+/* Trigger re-compile */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {

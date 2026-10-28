@@ -2,6 +2,9 @@
 
 namespace Modules\Quality\Services;
 
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 use Modules\Quality\Models\IncomingLot;
 use Modules\Quality\Models\IncomingPart;
 use Modules\Quality\Models\InspectionReport;
@@ -11,6 +14,216 @@ use Modules\Quality\Support\Qty;
 
 class QualityAnalysis
 {
+    public function getYearlyBarChart(): array
+    {
+        $years = collect(range(2, 0))->map(fn (int $offset) => now()->subYears($offset)->startOfYear());
+
+        return [
+            'labels' => $years->map(fn ($year) => $year->format('Y'))->all(),
+            'datasets' => [
+                [
+                    'label' => 'Purchase orders',
+                    'data' => $years->map(fn ($year) => PurchaseOrder::query()->whereBetween('po_date', [$year, $year->copy()->endOfYear()])->count())->all(),
+                ],
+                [
+                    'label' => 'Inspection reports',
+                    'data' => $years->map(fn ($year) => InspectionReport::query()->whereBetween('inspected_at', [$year, $year->copy()->endOfYear()])->count())->all(),
+                ],
+            ],
+        ];
+    }
+
+    public function getMonthlyLineChart(): array
+    {
+        $startOfMonth = now()->startOfMonth();
+        $daysInMonth = now()->daysInMonth;
+        $monthDays = collect(range(0, $daysInMonth - 1))->map(fn (int $offset) => $startOfMonth->copy()->addDays($offset));
+
+        return [
+            'labels' => $monthDays->map(fn ($day) => $day->format('d M'))->all(),
+            'datasets' => [
+                [
+                    'label' => 'Purchase orders',
+                    'data' => $monthDays->map(fn ($day) => PurchaseOrder::query()->whereDate('po_date', $day)->count())->all(),
+                ],
+                [
+                    'label' => 'Inspection reports',
+                    'data' => $monthDays->map(fn ($day) => InspectionReport::query()->whereDate('inspected_at', $day)->count())->all(),
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Purchase graph by period (day/week/month/year) within a date range.
+     *
+     * @return array{type: string, title: string, dataset: array{labels: list<string>, datasets: list<array<string, mixed>>}}
+     */
+    public function purchaseGraph(string $period, string $from, string $to): array
+    {
+        [$fromDate, $toDate] = $this->normalizeRange($from, $to);
+
+        return match ($period) {
+            'week' => [
+                'type' => 'bar',
+                'title' => __('Weekly'),
+                'dataset' => $this->purchaseQtyByWeeks($fromDate, $toDate),
+            ],
+            'month' => [
+                'type' => 'line',
+                'title' => __('Monthwise'),
+                'dataset' => $this->purchaseQtyByMonths($fromDate, $toDate),
+            ],
+            'year' => [
+                'type' => 'bar',
+                'title' => __('Year wise'),
+                'dataset' => $this->purchaseQtyByYears($fromDate, $toDate),
+            ],
+            default => [
+                'type' => 'bar',
+                'title' => __('Day wise'),
+                'dataset' => $this->purchaseQtyByDays($fromDate, $toDate),
+            ],
+        };
+    }
+
+    /**
+     * @return array{0: CarbonInterface, 1: CarbonInterface}
+     */
+    private function normalizeRange(string $from, string $to): array
+    {
+        $fromDate = rescue(fn () => Carbon::parse($from)->startOfDay(), now()->subDays(29)->startOfDay(), false);
+        $toDate = rescue(fn () => Carbon::parse($to)->endOfDay(), now()->endOfDay(), false);
+
+        if ($fromDate->gt($toDate)) {
+            return [$toDate->copy()->startOfDay(), $fromDate->copy()->endOfDay()];
+        }
+
+        return [$fromDate, $toDate];
+    }
+
+    /**
+     * @return array{labels: list<string>, datasets: list<array<string, mixed>>}
+     */
+    private function purchaseQtySeries(
+        Collection $buckets,
+        string $keyFormat,
+        string $labelFormat,
+        CarbonInterface $from,
+        CarbonInterface $to,
+    ): array {
+        $ordered = $this->orderedQtyGroupedBy($from, $to, $keyFormat);
+        $invoiced = $this->invoicedQtyGroupedBy($from, $to, $keyFormat);
+
+        return [
+            'labels' => $buckets->map(fn ($bucket) => $bucket->format($labelFormat))->all(),
+            'datasets' => [
+                [
+                    'label' => 'PO',
+                    'data' => $buckets->map(fn ($bucket) => $ordered->get($bucket->format($keyFormat), 0.0))->all(),
+                ],
+                [
+                    'label' => 'PI',
+                    'data' => $buckets->map(fn ($bucket) => $invoiced->get($bucket->format($keyFormat), 0.0))->all(),
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return array{labels: list<string>, datasets: list<array<string, mixed>>}
+     */
+    private function purchaseQtyByDays(CarbonInterface $from, CarbonInterface $to): array
+    {
+        $days = collect();
+        for ($day = $from->copy()->startOfDay(); $day->lte($to->copy()->startOfDay()); $day->addDay()) {
+            $days->push($day->copy());
+        }
+
+        return $this->purchaseQtySeries($days, 'Y-m-d', 'd M', $from, $to);
+    }
+
+    /**
+     * @return array{labels: list<string>, datasets: list<array<string, mixed>>}
+     */
+    private function purchaseQtyByWeeks(CarbonInterface $from, CarbonInterface $to): array
+    {
+        $weeks = collect();
+        for ($week = $from->copy()->startOfWeek(); $week->lte($to->copy()->endOfWeek()); $week->addWeek()) {
+            $weeks->push($week->copy());
+        }
+
+        $ordered = $this->orderedQtyGroupedBy($from, $to, 'o-W');
+        $invoiced = $this->invoicedQtyGroupedBy($from, $to, 'o-W');
+
+        return [
+            'labels' => $weeks->map(fn ($week) => $week->format('\WW o'))->all(),
+            'datasets' => [
+                [
+                    'label' => 'PO',
+                    'data' => $weeks->map(fn ($week) => $ordered->get($week->format('o-W'), 0.0))->all(),
+                ],
+                [
+                    'label' => 'PI',
+                    'data' => $weeks->map(fn ($week) => $invoiced->get($week->format('o-W'), 0.0))->all(),
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return array{labels: list<string>, datasets: list<array<string, mixed>>}
+     */
+    private function purchaseQtyByMonths(CarbonInterface $from, CarbonInterface $to): array
+    {
+        $months = collect();
+        for ($month = $from->copy()->startOfMonth(); $month->lte($to->copy()->startOfMonth()); $month->addMonth()) {
+            $months->push($month->copy());
+        }
+
+        return $this->purchaseQtySeries($months, 'Y-m', 'M Y', $from, $to);
+    }
+
+    /**
+     * @return array{labels: list<string>, datasets: list<array<string, mixed>>}
+     */
+    private function purchaseQtyByYears(CarbonInterface $from, CarbonInterface $to): array
+    {
+        $years = collect();
+        for ($year = $from->copy()->startOfYear(); $year->lte($to->copy()->startOfYear()); $year->addYear()) {
+            $years->push($year->copy());
+        }
+
+        return $this->purchaseQtySeries($years, 'Y', 'Y', $from, $to);
+    }
+
+    /**
+     * @return Collection<string, float>
+     */
+    private function orderedQtyGroupedBy(CarbonInterface $from, CarbonInterface $to, string $format): Collection
+    {
+        return PurchaseOrder::query()
+            ->with('lines')
+            ->where('status', '!=', 'cancelled')
+            ->whereBetween('po_date', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
+            ->get()
+            ->groupBy(fn (PurchaseOrder $order) => $order->po_date?->format($format))
+            ->map(fn ($group) => Qty::num($group->sum(fn (PurchaseOrder $order) => $order->orderedQuantity())));
+    }
+
+    /**
+     * @return Collection<string, float>
+     */
+    private function invoicedQtyGroupedBy(CarbonInterface $from, CarbonInterface $to, string $format): Collection
+    {
+        return PurchaseInvoice::query()
+            ->with('lines')
+            ->whereBetween('invoice_date', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
+            ->get()
+            ->groupBy(fn (PurchaseInvoice $invoice) => $invoice->invoice_date?->format($format))
+            ->map(fn ($group) => Qty::num($group->sum(fn (PurchaseInvoice $invoice) => $invoice->invoicedQuantity())));
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -176,6 +389,8 @@ class QualityAnalysis
                 ->map(fn (PurchaseOrder $order) => [
                     'po' => $order->po_number,
                     'vendor' => $order->vendor?->name,
+                    'vendor_code' => $order->vendor?->code,
+                    'pi' => $order->invoices->pluck('invoice_number')->implode(', '),
                     'status' => $order->status,
                     'ordered' => $order->orderedQuantity(),
                     'invoiced' => $order->invoicedQuantity(),
@@ -184,6 +399,26 @@ class QualityAnalysis
                     'url' => route('admin::quality.purchase.orders.format', $order),
                 ])
                 ->values() : collect(),
+        ];
+    }
+
+    public function getYtdStats(): array
+    {
+        $startOfYear = now()->startOfYear();
+
+        return [
+            'po_count' => PurchaseOrder::query()->where('po_date', '>=', $startOfYear)->count(),
+            'inspection_count' => InspectionReport::query()->where('inspected_at', '>=', $startOfYear)->count(),
+        ];
+    }
+
+    public function getMtdStats(): array
+    {
+        $startOfMonth = now()->startOfMonth();
+
+        return [
+            'po_count' => PurchaseOrder::query()->where('po_date', '>=', $startOfMonth)->count(),
+            'inspection_count' => InspectionReport::query()->where('inspected_at', '>=', $startOfMonth)->count(),
         ];
     }
 

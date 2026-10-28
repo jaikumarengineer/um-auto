@@ -11,82 +11,120 @@
     and it renders + themes itself automatically using the active admin color
     preset. No JS wiring needed per page — just drop it in and pass data.
 
-    <x-core::charts.chart
-        type="line"
-        :dataset="['labels' => ['Mon', 'Tue'], 'datasets' => [['label' => 'Users', 'data' => [10, 20]]]]"
-    />
+    When the dataset/type changes (filters, tabs), remount via a parent wire:key:
+
+    <div wire:key="po-chart-{{ $period }}">
+        <x-core::charts.chart type="line" :dataset="$dataset" />
+    </div>
 --}}
 <div
     wire:ignore
+    {{ $attributes }}
     x-data="{
         chart: null,
+        _onAppearance: null,
+        _retry: null,
         init() {
-            window.onAdminFormsReady(() => this.setup());
+            window.onAdminFormsReady(() => {
+                // Defer until Alpine has bound $refs and Livewire has finished
+                // inserting the remounted node — otherwise Chart.js paints a
+                // 0×0 canvas and the chart looks blank after filter switches.
+                this.$nextTick(() => {
+                    requestAnimationFrame(() => this.setup());
+                });
+            });
         },
-        setup() {
+        setup(attempt = 0) {
             const api = window.AdminCharts;
-            if (! api || ! window.AdminForms?.Chart) return;
+            const Chart = window.AdminForms?.Chart;
+            const canvas = this.$refs.canvas;
 
-            const data = @js($dataset);
+            if (! api || ! Chart || ! canvas) {
+                if (attempt < 10) {
+                    this._retry = requestAnimationFrame(() => this.setup(attempt + 1));
+                }
+                return;
+            }
+
+            if (! canvas.isConnected || canvas.clientWidth === 0) {
+                if (attempt < 20) {
+                    this._retry = requestAnimationFrame(() => this.setup(attempt + 1));
+                }
+                return;
+            }
+
+            this.teardown(false);
+
+            const data = structuredClone(@js($dataset));
             const palette = api.palette();
             const swatches = [palette.primary, palette.secondary, '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6'];
+            const chartType = @js($type);
+            const autoColor = @js($autoColor);
 
-            if (@js($autoColor)) {
+            if (autoColor) {
                 (data.datasets || []).forEach((set, index) => {
                     const color = swatches[index % swatches.length];
-                    const isFillType = @js(in_array($type, ['line', 'radar'], true));
+                    const isFillType = ['line', 'radar'].includes(chartType);
 
                     if (! set.borderColor) set.borderColor = color;
                     if (! set.backgroundColor) {
-                        set.backgroundColor = @js($type) === 'doughnut' || @js($type) === 'pie'
+                        set.backgroundColor = chartType === 'doughnut' || chartType === 'pie'
                             ? swatches
                             : (isFillType ? color + '26' : color);
                     }
-                    if (@js($type) === 'line' && set.tension === undefined) set.tension = 0.35;
-                    if (@js($type) === 'line' && set.fill === undefined) set.fill = true;
-                    if (@js($type) === 'line' && set.pointRadius === undefined) set.pointRadius = 0;
-                    if (@js($type) === 'bar' && set.borderRadius === undefined) set.borderRadius = 6;
-                    if (@js($type) === 'bar' && set.borderWidth === undefined) set.borderWidth = 0;
-                    if (@js($type) === 'bar' && set.maxBarThickness === undefined) set.maxBarThickness = 28;
+                    if (chartType === 'line' && set.tension === undefined) set.tension = 0.35;
+                    if (chartType === 'line' && set.fill === undefined) set.fill = true;
+                    if (chartType === 'line' && set.pointRadius === undefined) set.pointRadius = 0;
+                    if (chartType === 'bar' && set.borderRadius === undefined) set.borderRadius = 6;
+                    if (chartType === 'bar' && set.borderWidth === undefined) set.borderWidth = 0;
+                    if (chartType === 'bar' && set.maxBarThickness === undefined) set.maxBarThickness = 28;
                 });
             }
 
-            const isDonutLike = ['doughnut', 'pie', 'polarArea'].includes(@js($type));
+            const isDonutLike = ['doughnut', 'pie', 'polarArea'].includes(chartType);
             const options = api.baseOptions(@js($options));
 
             if (isDonutLike) {
                 delete options.scales;
             }
 
-            this.chart = new window.AdminForms.Chart(this.$refs.canvas, {
-                type: @js($type),
+            this.chart = new Chart(canvas, {
+                type: chartType,
                 data,
                 options,
             });
 
+            this.chart.resize();
+
             this._onAppearance = () => {
-                // Guard against Chart.js's well-known 'destroy-during-animation'
-                // crash: if a pending animation frame is still running when we
-                // destroy() the old chart, its now-null ctx gets drawn on and
-                // throws mid-frame — which also aborts every *other* chart's
-                // draw callback batched in that same animation frame. stop()
-                // cancels any in-flight animation before we tear it down.
-                if (! this.chart || ! this.$refs.canvas?.isConnected) return;
-                this.chart.stop();
-                this.chart.destroy();
-                this.chart = new window.AdminForms.Chart(this.$refs.canvas, {
-                    type: @js($type),
-                    data,
-                    options: isDonutLike ? (() => { const o = api.baseOptions(@js($options)); delete o.scales; return o; })() : api.baseOptions(@js($options)),
-                });
+                if (! this.$refs.canvas?.isConnected) return;
+                this.teardown(false);
+                this.setup();
             };
             window.addEventListener('admin-theme-changed', this._onAppearance);
         },
-        destroy() {
-            window.removeEventListener('admin-theme-changed', this._onAppearance);
-            this.chart?.stop();
-            this.chart?.destroy();
+        teardown(cancelRetry = true) {
+            if (cancelRetry && this._retry) {
+                cancelAnimationFrame(this._retry);
+                this._retry = null;
+            }
+
+            if (this._onAppearance) {
+                window.removeEventListener('admin-theme-changed', this._onAppearance);
+                this._onAppearance = null;
+            }
+
+            const canvas = this.$refs?.canvas;
+            const Chart = window.AdminForms?.Chart;
+            const existing = canvas && Chart?.getChart ? Chart.getChart(canvas) : null;
+
+            try { existing?.stop?.(); existing?.destroy?.(); } catch (e) {}
+            try { this.chart?.stop?.(); this.chart?.destroy?.(); } catch (e) {}
+
             this.chart = null;
+        },
+        destroy() {
+            this.teardown(true);
         }
     }"
     x-on:remove="destroy()"

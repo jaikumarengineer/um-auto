@@ -10,6 +10,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Laravolt\Avatar\Facade as Avatar;
+use Modules\Quality\Support\QualityAlertCatalog;
 
 class User extends Authenticatable
 {
@@ -64,6 +65,7 @@ class User extends Authenticatable
         'timezone',
         'locale',
         'ui_preferences',
+        'email_alert_preferences',
         'is_active',
         'last_login_at',
         'user_type',
@@ -90,6 +92,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'ui_preferences' => 'array',
+            'email_alert_preferences' => 'array',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
         ];
@@ -107,6 +110,23 @@ class User extends Authenticatable
         ])->save();
     }
 
+    /**
+     * @return array{enabled: bool, departments: list<string>, statuses: list<string>, reports: list<string>, summaries: list<string>}
+     */
+    public function emailAlertPreferences(): array
+    {
+        return QualityAlertCatalog::normalize($this->email_alert_preferences);
+    }
+
+    public function receivesQualityAlert(string $alertType): bool
+    {
+        if (! $this->is_active || ! filled($this->email)) {
+            return false;
+        }
+
+        return QualityAlertCatalog::matches($alertType, $this->email_alert_preferences);
+    }
+
     protected $appends = [
         'full_name',
         'initials',
@@ -120,8 +140,8 @@ class User extends Authenticatable
 
     public function getAvatarUrlAttribute()
     {
-        if ($this->image) {
-            return asset($this->image);
+        if ($url = media_url($this->image)) {
+            return $url;
         }
 
         return Avatar::create($this->full_name)->toBase64();

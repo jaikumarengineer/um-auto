@@ -1,6 +1,7 @@
 <?php
 
 use App\Concerns\NotifiesWithSweetAlert;
+use App\Concerns\WithSorting;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -14,8 +15,15 @@ use Modules\Quality\Models\PurchaseOrderLine;
 new #[Layout('core::layouts.app')] class extends Component {
     use NotifiesWithSweetAlert;
     use WithPagination;
+    use WithSorting;
 
     public string $search = '';
+
+    public string $sortBy = 'part_number';
+
+    public string $sortDirection = 'asc';
+
+    protected array $sortable = ['part_number', 'name', 'uom', 'drawing_revision', 'standards_count'];
 
     public bool $showFlyout = false;
 
@@ -104,19 +112,19 @@ new #[Layout('core::layouts.app')] class extends Component {
     public function with(): array
     {
         return [
-            'parts' => IncomingPart::query()
-                ->with(['vendor', 'category'])
-                ->withCount('standards')
-                ->when($this->search !== '', function ($query) {
-                    $term = '%'.$this->search.'%';
-                    $query->where(function ($query) use ($term) {
-                        $query->where('part_number', 'like', $term)
-                            ->orWhere('name', 'like', $term)
-                            ->orWhereHas('category', fn ($category) => $category->where('name', 'like', $term));
-                    });
-                })
-                ->orderBy('part_number')
-                ->paginate(12),
+            'parts' => $this->applySorting(
+                IncomingPart::query()
+                    ->with(['vendor', 'category'])
+                    ->withCount('standards')
+                    ->when($this->search !== '', function ($query) {
+                        $term = '%'.$this->search.'%';
+                        $query->where(function ($query) use ($term) {
+                            $query->where('part_number', 'like', $term)
+                                ->orWhere('name', 'like', $term)
+                                ->orWhereHas('category', fn ($category) => $category->where('name', 'like', $term));
+                        });
+                    })
+            )->paginate(12),
             'vendors' => ApprovedVendor::query()->orderBy('name')->get(),
             'categories' => PartCategory::query()->orderBy('name')->get(),
         ];
@@ -145,9 +153,12 @@ new #[Layout('core::layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
             <thead class="bg-[var(--admin-surface-muted)]">
                 <tr>
-                    @foreach ([__('Part'), __('Name'), __('Vendor'), __('UOM'), __('Rev'), __('Standards')] as $heading)
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ $heading }}</th>
-                    @endforeach
+                    <x-core::ui.sortable-th column="part_number" :label="__('Part')" />
+                    <x-core::ui.sortable-th column="name" :label="__('Name')" />
+                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Vendor') }}</th>
+                    <x-core::ui.sortable-th column="uom" :label="__('UOM')" />
+                    <x-core::ui.sortable-th column="drawing_revision" :label="__('Rev')" />
+                    <x-core::ui.sortable-th column="standards_count" :label="__('Standards')" />
                     <th></th>
                 </tr>
             </thead>
@@ -174,7 +185,7 @@ new #[Layout('core::layouts.app')] class extends Component {
             </tbody>
         </table>
     </div>
-    @if ($parts->hasPages()) <div class="mt-4">{{ $parts->links() }}</div> @endif
+    <x-core::ui.pagination :paginator="$parts" />
 
     <flux:modal wire:model="showFlyout" variant="flyout" class="md:min-w-[28rem] !rounded-s-3xl !ps-8 !pe-8">
         <form wire:submit="savePart" class="flex h-full flex-col gap-4">
@@ -199,7 +210,7 @@ new #[Layout('core::layouts.app')] class extends Component {
                         wire:key="part-vendor-{{ $partId ?? 'new' }}"
                         wire:model="vendor_id"
                         :label="__('Preferred vendor')"
-                        :options="$vendors->mapWithKeys(fn ($vendor) => [$vendor->id => $vendor->name])"
+                        :options="$vendors->mapWithKeys(fn ($vendor) => [$vendor->id => $vendor->optionLabel()])"
                         :placeholder="__('None')"
                     />
                 @endif

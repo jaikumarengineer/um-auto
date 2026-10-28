@@ -3,12 +3,9 @@
 use App\Helpers\Admin\SettingHelper;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
-use Livewire\WithFileUploads;
 use Livewire\Volt\Component;
 
 new #[Layout('core::layouts.app')] class extends Component {
-    use WithFileUploads;
 
     public string $selectedTab = 'main-tab';
 
@@ -22,23 +19,6 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function save(): void
     {
-        $imageKeys = [
-            'meta_os_image',
-            'site_logo',
-            'site_logo_2',
-            'site_mobile_logo',
-            'site_favicon',
-            'footer_logo',
-            'admin_logo',
-        ];
-
-        foreach ($imageKeys as $key) {
-            $value = $this->request[$key] ?? null;
-            if ($value instanceof TemporaryUploadedFile) {
-                $this->request[$key] = $value->store('settings/logo', 'public');
-            }
-        }
-
         if (isset($this->request['meta_tags']) && is_array($this->request['meta_tags'])) {
             $this->request['meta_tags'] = array_values($this->request['meta_tags']);
         }
@@ -231,9 +211,10 @@ new #[Layout('core::layouts.app')] class extends Component {
                     <x-core::forms.filepond
                         wire:model="request.meta_os_image"
                         model="request.meta_os_image"
+                        folder="logos"
                         :label="__('Meta OS Image')"
                         :description="__('Recommended 1200 × 630')"
-                        :preview="! empty($request['meta_os_image']) && is_string($request['meta_os_image']) ? asset('storage/'.$request['meta_os_image']) : null"
+                        :preview="media_url($request['meta_os_image'] ?? null)"
                         max-height="8rem"
                     />
                 </div>
@@ -251,8 +232,9 @@ new #[Layout('core::layouts.app')] class extends Component {
                         <x-core::forms.filepond
                             wire:model="request.{{ $key }}"
                             model="request.{{ $key }}"
+                            folder="logos"
                             :label="$label"
-                            :preview="! empty($request[$key]) && is_string($request[$key]) ? asset('storage/'.$request[$key]) : null"
+                            :preview="media_url($request[$key] ?? null)"
                             :shape="$key === 'site_favicon' ? 'square' : 'rectangle'"
                             max-height="6rem"
                         />
@@ -300,8 +282,9 @@ new #[Layout('core::layouts.app')] class extends Component {
                     <x-core::forms.filepond
                         wire:model="request.footer_logo"
                         model="request.footer_logo"
+                        folder="logos"
                         :label="__('Footer Logo')"
-                        :preview="! empty($request['footer_logo']) && is_string($request['footer_logo']) ? asset('storage/'.$request['footer_logo']) : null"
+                        :preview="media_url($request['footer_logo'] ?? null)"
                         max-height="6rem"
                     />
                 </div>
@@ -314,8 +297,9 @@ new #[Layout('core::layouts.app')] class extends Component {
                     <x-core::forms.filepond
                         wire:model="request.admin_logo"
                         model="request.admin_logo"
+                        folder="logos"
                         :label="__('Admin Dashboard Logo')"
-                        :preview="! empty($request['admin_logo']) && is_string($request['admin_logo']) ? asset('storage/'.$request['admin_logo']) : null"
+                        :preview="media_url($request['admin_logo'] ?? null)"
                         max-height="6rem"
                     />
                 </div>

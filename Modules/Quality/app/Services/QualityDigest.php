@@ -2,8 +2,10 @@
 
 namespace Modules\Quality\Services;
 
+use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Modules\Quality\Models\IncomingLot;
 use Modules\Quality\Models\InspectionReport;
@@ -11,210 +13,378 @@ use Modules\Quality\Models\PurchaseInvoice;
 use Modules\Quality\Models\PurchaseOrder;
 use Modules\Quality\Models\QualityAlert;
 use Modules\Quality\Support\Qty;
+use Modules\Quality\Support\QualityAlertCatalog;
 
 class QualityDigest
 {
     /**
      * @return array<int, QualityAlert>
      */
-    public function generate(?CarbonInterface $date = null, bool $sendMail = true): array
+    public function generate(?CarbonInterface $date = null, bool $sendMail = true, string $cadence = 'daily'): array
     {
-        $day = Carbon::parse($date ?? now())->startOfDay();
-        $snapshot = $this->snapshot($day);
+        if (! in_array($cadence, ['daily', 'weekly', 'monthly'], true)) {
+            $cadence = 'daily';
+        }
 
-        QualityAlert::query()->whereDate('alert_on', $day->toDateString())->delete();
+        $system = QualityAlertCatalog::systemPreferences();
+
+        if (! $system['enabled']) {
+            return [];
+        }
+
+        $day = Carbon::parse($date ?? now())->startOfDay();
+        [$start, $end] = $this->period($day, $cadence);
+        $messages = $this->buildMessages($cadence, $start, $end, (int) $system['overdue_days']);
+
+        if ($messages === []) {
+            return [];
+        }
+
+        QualityAlert::query()
+            ->whereDate('alert_on', $day->toDateString())
+            ->where('meta->cadence', $cadence)
+            ->delete();
+
+        $users = User::query()
+            ->where('is_active', true)
+            ->whereNotNull('email')
+            ->where('email', '!=', '')
+            ->get();
 
         $alerts = [];
+        $whatsapp = trim((string) config('quality.alert_whatsapp'));
 
-        foreach ($this->messages($snapshot) as $message) {
-            foreach (['email', 'whatsapp'] as $channel) {
+        foreach ($messages as $message) {
+            foreach ($this->emailRecipientsFor($message['type'], $users, $system['fallback_email']) as $recipient) {
                 $alert = QualityAlert::query()->create([
-                    'channel' => $channel,
+                    'channel' => 'email',
                     'alert_type' => $message['type'],
-                    'recipient' => $channel === 'email'
-                        ? (string) config('quality.alert_email')
-                        : (string) config('quality.alert_whatsapp'),
+                    'recipient' => $recipient,
                     'subject' => $message['subject'],
-                    'body' => $channel === 'email' ? $message['email'] : $message['whatsapp'],
+                    'body' => $message['email'],
                     'status' => 'logged',
                     'alert_on' => $day->toDateString(),
-                    'meta' => ['as_of' => $snapshot['as_of']],
+                    'meta' => [
+                        'cadence' => $cadence,
+                        'as_of' => now()->format('d M Y H:i'),
+                        'period_start' => $start->toDateString(),
+                        'period_end' => $end->toDateString(),
+                    ],
                 ]);
 
-                if ($channel === 'email' && $sendMail) {
+                if ($sendMail) {
                     $this->deliverEmail($alert);
                 }
 
                 $alerts[] = $alert;
             }
+
+            if ($whatsapp === '') {
+                continue;
+            }
+
+            $alerts[] = QualityAlert::query()->create([
+                'channel' => 'whatsapp',
+                'alert_type' => $message['type'],
+                'recipient' => $whatsapp,
+                'subject' => $message['subject'],
+                'body' => $message['whatsapp'],
+                'status' => 'logged',
+                'alert_on' => $day->toDateString(),
+                'meta' => [
+                    'cadence' => $cadence,
+                    'as_of' => now()->format('d M Y H:i'),
+                ],
+            ]);
         }
 
         return $alerts;
     }
 
     /**
-     * @return array<string, mixed>
+     * @param  Collection<int, User>  $users
+     * @return list<string>
      */
-    public function snapshot(CarbonInterface $day): array
+    private function emailRecipientsFor(string $alertType, Collection $users, string $fallback): array
     {
-        $day = Carbon::parse($day)->startOfDay();
-        $end = $day->copy()->endOfDay();
-
-        $orders = PurchaseOrder::query()->with(['vendor', 'lines.invoiceLines'])->where('status', '!=', 'cancelled')->get();
-        $openOrders = $orders->filter(fn (PurchaseOrder $order) => in_array($order->status, ['open', 'partial', 'draft'], true));
-        $overdue = $orders->filter(fn (PurchaseOrder $order) => $order->isOverdue())->values();
-
-        $balances = $orders
-            ->filter(fn (PurchaseOrder $order) => $order->status !== 'draft' && $order->balanceQuantity() > 0)
-            ->map(fn (PurchaseOrder $order) => [
-                'po' => $order->po_number,
-                'vendor' => $order->vendor?->name,
-                'ordered' => Qty::format($order->orderedQuantity()),
-                'invoiced' => Qty::format($order->invoicedQuantity()),
-                'balance' => Qty::format($order->balanceQuantity()),
-                'status' => $order->status,
-            ])
+        $subscribers = $users
+            ->filter(fn (User $user) => $user->receivesQualityAlert($alertType))
+            ->map(fn (User $user) => strtolower(trim((string) $user->email)))
+            ->filter()
+            ->unique()
             ->values()
             ->all();
 
-        $invoicesToday = PurchaseInvoice::query()->whereDate('invoice_date', $day)->get();
-        $lotsToday = IncomingLot::query()->with('part')->whereBetween('received_at', [$day, $end])->get();
-        $reportsToday = InspectionReport::query()->whereBetween('inspected_at', [$day, $end])->get();
-        $waiting = IncomingLot::query()->with('part')->whereDoesntHave('reports')->orderBy('received_at')->get();
-        $holds = IncomingLot::query()->with('part')->where('status', 'rejected')->get();
+        if ($subscribers !== []) {
+            return $subscribers;
+        }
+
+        $fallback = strtolower(trim($fallback));
+
+        return $fallback !== '' ? [$fallback] : [];
+    }
+
+    /**
+     * @return array{0: CarbonInterface, 1: CarbonInterface}
+     */
+    private function period(CarbonInterface $day, string $cadence): array
+    {
+        $day = Carbon::parse($day)->startOfDay();
+
+        return match ($cadence) {
+            'weekly' => [$day->copy()->startOfWeek(), $day->copy()->endOfDay()],
+            'monthly' => [$day->copy()->startOfMonth(), $day->copy()->endOfDay()],
+            default => [$day->copy()->startOfDay(), $day->copy()->endOfDay()],
+        };
+    }
+
+    private function periodLabel(CarbonInterface $start, CarbonInterface $end, string $cadence): string
+    {
+        if ($cadence === 'daily') {
+            return $start->format('d M Y');
+        }
+
+        return $start->format('d M Y').' – '.$end->format('d M Y');
+    }
+
+    /**
+     * @return array<int, array{type: string, subject: string, email: string, whatsapp: string}>
+     */
+    private function buildMessages(string $cadence, CarbonInterface $start, CarbonInterface $end, int $overdueDays): array
+    {
+        $purchase = $this->purchaseSnapshot($start, $end);
+        $incoming = $this->incomingSnapshot($start, $end, $overdueDays);
+        $period = $this->periodLabel($start, $end, $cadence);
+        $messages = [];
+
+        if ($cadence === 'daily') {
+            foreach (array_keys(QualityAlertCatalog::STATUSES) as $status) {
+                $messages[] = $this->statusMessage('po_vs_pi', $status, $period, $purchase[$status]);
+                $messages[] = $this->statusMessage('incoming_inspection', $status, $period, $incoming[$status]);
+            }
+        }
+
+        $messages[] = $this->summaryMessage('po_vs_pi', $cadence, $period, $purchase, implode("\n", [
+            'Purchase orders raised: '.$purchase['raised'],
+            'Purchase invoices booked: '.$purchase['invoices'].' ('.$purchase['invoice_qty'].' qty)',
+        ]));
+        $messages[] = $this->summaryMessage('incoming_inspection', $cadence, $period, $incoming, implode("\n", [
+            'Batches received: '.$incoming['received'].' ('.$incoming['received_qty'].' qty)',
+            'Inspection reports: '.$incoming['reports'],
+            'Failed inspections: '.$incoming['failed'],
+        ]));
+
+        return array_values(array_filter(
+            $messages,
+            fn (array $message) => QualityAlertCatalog::systemAllows($message['type']),
+        ));
+    }
+
+    /**
+     * @param  list<string>  $lines
+     * @return array{type: string, subject: string, email: string, whatsapp: string}
+     */
+    private function statusMessage(string $report, string $status, string $period, array $lines): array
+    {
+        $type = "{$report}.{$status}";
+        $heading = QualityAlertCatalog::alertTypes()[$type]['label'].' · '.$period;
+        $scope = $status === 'completed' ? 'in this period' : 'now';
 
         return [
-            'date' => $day->toDateString(),
-            'as_of' => now()->format('d M Y H:i'),
-            'pos_created' => PurchaseOrder::query()->whereDate('po_date', $day)->count(),
-            'invoices_today' => $invoicesToday->count(),
-            'invoice_qty_today' => Qty::format($invoicesToday->sum(fn (PurchaseInvoice $invoice) => $invoice->invoicedQuantity())),
-            'lots_today' => $lotsToday->count(),
-            'lot_qty_today' => Qty::format($lotsToday->sum(fn (IncomingLot $lot) => (float) $lot->qty)),
-            'reports_today' => $reportsToday->count(),
-            'failed_today' => $reportsToday->where('result', 'fail')->count(),
-            'open_orders' => $openOrders->count(),
-            'overdue' => $overdue->map(fn (PurchaseOrder $order) => $order->po_number.' ('.$order->vendor?->name.')')->all(),
-            'balances' => $balances,
-            'waiting' => $waiting->map(fn (IncomingLot $lot) => $lot->lot_number.' · '.($lot->part?->part_number ?? '').' · '.Qty::format($lot->qty))->all(),
-            'holds' => $holds->map(fn (IncomingLot $lot) => $lot->lot_number.' · '.($lot->part?->part_number ?? ''))->all(),
+            'type' => $type,
+            'subject' => $heading,
+            'email' => $heading."\n".__('As of :time', ['time' => now()->format('d M Y H:i')])."\n\n"
+                .ucfirst($status).' '.$scope.' ('.count($lines).")\n"
+                .$this->lines($lines),
+            'whatsapp' => $heading.': '.count($lines).'.',
         ];
     }
 
     /**
      * @param  array<string, mixed>  $snapshot
-     * @return array<int, array{type: string, subject: string, email: string, whatsapp: string}>
+     * @return array{type: string, subject: string, email: string, whatsapp: string}
      */
-    private function messages(array $snapshot): array
+    private function summaryMessage(string $report, string $cadence, string $period, array $snapshot, string $preamble): array
     {
-        $date = Carbon::parse($snapshot['date'])->format('d M Y');
-        $balanceLines = collect($snapshot['balances'])
-            ->map(fn (array $row) => "{$row['po']} · ordered {$row['ordered']} · invoiced {$row['invoiced']} · balance {$row['balance']}")
-            ->implode("\n");
+        $type = "{$report}.summary.{$cadence}";
+        $heading = QualityAlertCatalog::alertTypes()[$type]['label'].' · '.$period;
 
-        $summaryEmail = implode("\n", array_filter([
-            "UM Auto incoming quality — day summary for {$date}",
-            "As of {$snapshot['as_of']}",
+        $email = implode("\n", [
+            $heading,
+            __('As of :time', ['time' => now()->format('d M Y H:i')]),
             '',
-            "Purchase orders raised: {$snapshot['pos_created']}",
-            "Purchase invoices booked: {$snapshot['invoices_today']} ({$snapshot['invoice_qty_today']} qty)",
-            "Batches received: {$snapshot['lots_today']} ({$snapshot['lot_qty_today']} qty)",
-            "Inspection reports: {$snapshot['reports_today']}",
-            "Failed inspections today: {$snapshot['failed_today']}",
-            "Open purchase orders: {$snapshot['open_orders']}",
-            'Lots still waiting inspection: '.count($snapshot['waiting']),
-            'Rejected lots on hold: '.count($snapshot['holds']),
-        ]));
-
-        $poEmail = "PO vs purchase invoice till {$snapshot['as_of']}\n\n".($balanceLines !== ''
-            ? $balanceLines
-            : 'Every open purchase order is fully covered by invoices.');
-
-        $waitingEmail = "Batches received and not yet inspected\n\n".($snapshot['waiting'] === []
-            ? 'No batches are waiting.'
-            : implode("\n", $snapshot['waiting']));
-
-        $overdueEmail = "Purchase orders past the expected date\n\n".($snapshot['overdue'] === []
-            ? 'No overdue purchase orders.'
-            : implode("\n", $snapshot['overdue']));
-
-        $holdEmail = "Rejected batches still on quality hold\n\n".($snapshot['holds'] === []
-            ? 'No batches are on hold.'
-            : implode("\n", $snapshot['holds']));
-
-        $purchaseEmail = implode("\n", [
-            "Purchase day summary for {$date}",
-            "As of {$snapshot['as_of']}",
+            $preamble,
             '',
-            "Purchase orders raised: {$snapshot['pos_created']}",
-            "Purchase invoices booked: {$snapshot['invoices_today']} ({$snapshot['invoice_qty_today']} qty)",
-            "Open purchase orders: {$snapshot['open_orders']}",
-            'Overdue purchase orders: '.count($snapshot['overdue']),
-        ]);
-
-        $incomingEmail = implode("\n", [
-            "Incoming day summary for {$date}",
-            "As of {$snapshot['as_of']}",
+            'Overdue now ('.count($snapshot['overdue']).')',
+            $this->lines($snapshot['overdue']),
             '',
-            "Batches received: {$snapshot['lots_today']} ({$snapshot['lot_qty_today']} qty)",
-            "Inspection reports: {$snapshot['reports_today']}",
-            "Failed inspections today: {$snapshot['failed_today']}",
-            'Lots still waiting inspection: '.count($snapshot['waiting']),
-            'Rejected lots on hold: '.count($snapshot['holds']),
+            'Pending now ('.count($snapshot['pending']).')',
+            $this->lines($snapshot['pending']),
+            '',
+            'Completed in this period ('.count($snapshot['completed']).')',
+            $this->lines($snapshot['completed']),
         ]);
 
         return [
-            [
-                'type' => 'daily_summary',
-                'subject' => "Day summary · {$date}",
-                'email' => $summaryEmail,
-                'whatsapp' => "UM Auto {$date}: POs {$snapshot['pos_created']}, invoices {$snapshot['invoices_today']} ({$snapshot['invoice_qty_today']}), lots {$snapshot['lots_today']}, inspections {$snapshot['reports_today']}, fails {$snapshot['failed_today']}, waiting ".count($snapshot['waiting']).'.',
-            ],
-            [
-                'type' => 'purchase_summary',
-                'subject' => "Purchase day summary · {$date}",
-                'email' => $purchaseEmail,
-                'whatsapp' => "Purchase {$date}: POs {$snapshot['pos_created']}, invoices {$snapshot['invoices_today']} ({$snapshot['invoice_qty_today']}), open {$snapshot['open_orders']}, overdue ".count($snapshot['overdue']).'.',
-            ],
-            [
-                'type' => 'incoming_summary',
-                'subject' => "Incoming day summary · {$date}",
-                'email' => $incomingEmail,
-                'whatsapp' => "Incoming {$date}: lots {$snapshot['lots_today']} ({$snapshot['lot_qty_today']}), inspections {$snapshot['reports_today']}, fails {$snapshot['failed_today']}, waiting ".count($snapshot['waiting']).'.',
-            ],
-            [
-                'type' => 'po_vs_pi',
-                'subject' => "PO vs PI · {$date}",
-                'email' => $poEmail,
-                'whatsapp' => 'PO vs PI: '.(count($snapshot['balances']) === 0
-                    ? 'all covered.'
-                    : count($snapshot['balances']).' POs still have a balance. '.collect($snapshot['balances'])->take(3)->map(fn ($row) => $row['po'].' bal '.$row['balance'])->implode(', ')),
-            ],
-            [
-                'type' => 'uninspected_lots',
-                'subject' => "Lots waiting inspection · {$date}",
-                'email' => $waitingEmail,
-                'whatsapp' => count($snapshot['waiting']) === 0
-                    ? 'No batches are waiting for inspection.'
-                    : 'Waiting inspection: '.implode(', ', array_slice($snapshot['waiting'], 0, 4)),
-            ],
-            [
-                'type' => 'overdue_po',
-                'subject' => "Overdue purchase orders · {$date}",
-                'email' => $overdueEmail,
-                'whatsapp' => $snapshot['overdue'] === []
-                    ? 'No overdue purchase orders.'
-                    : 'Overdue POs: '.implode(', ', $snapshot['overdue']),
-            ],
-            [
-                'type' => 'quality_hold',
-                'subject' => "Quality hold · {$date}",
-                'email' => $holdEmail,
-                'whatsapp' => $snapshot['holds'] === []
-                    ? 'No rejected batches on hold.'
-                    : 'Quality hold: '.implode(', ', $snapshot['holds']),
-            ],
+            'type' => $type,
+            'subject' => $heading,
+            'email' => $email,
+            'whatsapp' => $heading.': overdue '.count($snapshot['overdue']).', pending '.count($snapshot['pending']).', completed '.count($snapshot['completed']).'.',
         ];
+    }
+
+    /**
+     * @return array{overdue: list<string>, pending: list<string>, completed: list<string>, raised: int, invoices: int, invoice_qty: string}
+     */
+    private function purchaseSnapshot(CarbonInterface $start, CarbonInterface $end): array
+    {
+        $asOf = $end->copy()->startOfDay();
+        $overdue = [];
+        $pending = [];
+        $completed = [];
+        $raised = 0;
+
+        $orders = PurchaseOrder::query()
+            ->with(['vendor', 'lines.invoiceLines'])
+            ->where('status', '!=', 'cancelled')
+            ->get();
+
+        foreach ($orders as $order) {
+            if ($order->status === 'draft') {
+                continue;
+            }
+
+            if ($order->po_date && $order->po_date->between($start, $end)) {
+                $raised++;
+            }
+
+            $line = sprintf(
+                '%s · %s · ordered %s · invoiced %s · balance %s%s',
+                $order->po_number,
+                $order->vendor?->name ?? '—',
+                Qty::format($order->orderedQuantity()),
+                Qty::format($order->invoicedQuantity()),
+                Qty::format($order->balanceQuantity()),
+                $order->expected_date ? ' · expected '.$order->expected_date->format('d M Y') : '',
+            );
+
+            if ($order->status === 'closed') {
+                if ($order->updated_at && $order->updated_at->between($start, $end)) {
+                    $completed[] = $line;
+                }
+
+                continue;
+            }
+
+            if ($order->expected_date && $order->expected_date->lt($asOf) && in_array($order->status, ['open', 'partial'], true)) {
+                $overdue[] = $line;
+
+                continue;
+            }
+
+            if (in_array($order->status, ['open', 'partial'], true) && $order->balanceQuantity() > 0) {
+                $pending[] = $line;
+            }
+        }
+
+        $invoices = PurchaseInvoice::query()
+            ->with('lines')
+            ->whereDate('invoice_date', '>=', $start->toDateString())
+            ->whereDate('invoice_date', '<=', $end->toDateString())
+            ->get();
+
+        return [
+            'overdue' => $overdue,
+            'pending' => $pending,
+            'completed' => $completed,
+            'raised' => $raised,
+            'invoices' => $invoices->count(),
+            'invoice_qty' => Qty::format($invoices->sum(fn (PurchaseInvoice $invoice) => $invoice->invoicedQuantity())),
+        ];
+    }
+
+    /**
+     * @return array{overdue: list<string>, pending: list<string>, completed: list<string>, received: int, received_qty: string, reports: int, failed: int}
+     */
+    private function incomingSnapshot(CarbonInterface $start, CarbonInterface $end, int $overdueDays): array
+    {
+        $cutoff = $end->copy()->startOfDay()->subDays(max(0, $overdueDays - 1));
+        $overdue = [];
+        $pending = [];
+        $received = 0;
+        $receivedQty = 0.0;
+
+        $lots = IncomingLot::query()->with(['part', 'vendor', 'reports'])->get();
+
+        foreach ($lots as $lot) {
+            if ($lot->received_at && $lot->received_at->between($start, $end)) {
+                $received++;
+                $receivedQty += (float) $lot->qty;
+            }
+
+            if ($lot->reports->isNotEmpty()) {
+                continue;
+            }
+
+            $line = sprintf(
+                '%s · %s · %s · qty %s · received %s',
+                $lot->lot_number,
+                $lot->part?->part_number ?? '—',
+                $lot->vendor?->name ?? '—',
+                Qty::format($lot->qty),
+                $lot->received_at?->format('d M Y H:i') ?? '—',
+            );
+
+            if ($lot->received_at && $lot->received_at->lt($cutoff)) {
+                $overdue[] = $line;
+            } else {
+                $pending[] = $line;
+            }
+        }
+
+        $reports = InspectionReport::query()
+            ->with(['lot.part'])
+            ->whereBetween('inspected_at', [$start, $end])
+            ->orderBy('inspected_at')
+            ->get();
+
+        $completed = $reports->map(fn (InspectionReport $report) => sprintf(
+            '%s · %s · %s · %s',
+            $report->report_number,
+            $report->lot?->lot_number ?? '—',
+            $report->lot?->part?->part_number ?? '—',
+            str($report->result)->replace('_', ' ')->title(),
+        ))->all();
+
+        return [
+            'overdue' => $overdue,
+            'pending' => $pending,
+            'completed' => $completed,
+            'received' => $received,
+            'received_qty' => Qty::format($receivedQty),
+            'reports' => $reports->count(),
+            'failed' => $reports->where('result', 'fail')->count(),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $rows
+     */
+    private function lines(array $rows): string
+    {
+        if ($rows === []) {
+            return 'None.';
+        }
+
+        $shown = array_slice($rows, 0, 25);
+        $text = implode("\n", $shown);
+        $extra = count($rows) - count($shown);
+
+        if ($extra > 0) {
+            $text .= "\n… and {$extra} more.";
+        }
+
+        return $text;
     }
 
     private function deliverEmail(QualityAlert $alert): void

@@ -1,6 +1,7 @@
 <?php
 
 use App\Concerns\NotifiesWithSweetAlert;
+use App\Concerns\WithSorting;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -10,6 +11,13 @@ use Modules\Quality\Models\SamplingPlan;
 new #[Layout('core::layouts.app')] class extends Component {
     use NotifiesWithSweetAlert;
     use WithPagination;
+    use WithSorting;
+
+    public string $sortBy = 'lot_min';
+
+    public string $sortDirection = 'asc';
+
+    protected array $sortable = ['code', 'standard_ref', 'inspection_level', 'aql', 'lot_min', 'sample_size', 'accept_number'];
 
     public bool $showFlyout = false;
 
@@ -103,7 +111,7 @@ new #[Layout('core::layouts.app')] class extends Component {
     public function with(): array
     {
         return [
-            'plans' => SamplingPlan::query()->orderBy('lot_min')->paginate(15),
+            'plans' => $this->applySorting(SamplingPlan::query())->paginate(15),
         ];
     }
 }; ?>
@@ -126,9 +134,13 @@ new #[Layout('core::layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
             <thead class="bg-[var(--admin-surface-muted)]">
                 <tr>
-                    @foreach ([__('Code'), __('Standard'), __('Level'), __('AQL'), __('Lot size'), __('Sample'), __('Ac / Re')] as $heading)
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ $heading }}</th>
-                    @endforeach
+                    <x-core::ui.sortable-th column="code" :label="__('Code')" />
+                    <x-core::ui.sortable-th column="standard_ref" :label="__('Standard')" />
+                    <x-core::ui.sortable-th column="inspection_level" :label="__('Level')" />
+                    <x-core::ui.sortable-th column="aql" :label="__('AQL')" />
+                    <x-core::ui.sortable-th column="lot_min" :label="__('Lot size')" />
+                    <x-core::ui.sortable-th column="sample_size" :label="__('Sample')" />
+                    <x-core::ui.sortable-th column="accept_number" :label="__('Ac / Re')" />
                     <th></th>
                 </tr>
             </thead>
@@ -156,7 +168,7 @@ new #[Layout('core::layouts.app')] class extends Component {
             </tbody>
         </table>
     </div>
-    @if ($plans->hasPages()) <div class="mt-4">{{ $plans->links() }}</div> @endif
+    <x-core::ui.pagination :paginator="$plans" />
 
     <flux:modal wire:model="showFlyout" variant="flyout" class="md:min-w-[28rem] !rounded-s-3xl !ps-8 !pe-8">
         <form wire:submit="savePlan" class="flex h-full flex-col gap-4">

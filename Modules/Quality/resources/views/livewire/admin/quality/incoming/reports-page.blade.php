@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\WithSorting;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -8,12 +9,24 @@ use Modules\Quality\Support\Qty;
 
 new #[Layout('core::layouts.app')] class extends Component {
     use WithPagination;
+    use WithSorting;
 
     public string $search = '';
 
     public string $resultFilter = '';
 
+    public string $sortBy = 'inspected_at';
+
+    public string $sortDirection = 'desc';
+
+    protected array $sortable = ['report_number', 'inspected_qty', 'sample_size', 'inspected_at', 'result'];
+
     public function updatingSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingResultFilter(): void
     {
         $this->resetPage();
     }
@@ -21,19 +34,19 @@ new #[Layout('core::layouts.app')] class extends Component {
     public function with(): array
     {
         return [
-            'reports' => InspectionReport::query()
-                ->with(['lot.part', 'standard'])
-                ->when($this->search !== '', function ($query) {
-                    $term = '%'.$this->search.'%';
-                    $query->where(function ($query) use ($term) {
-                        $query->where('report_number', 'like', $term)
-                            ->orWhereHas('lot', fn ($lot) => $lot->where('lot_number', 'like', $term))
-                            ->orWhereHas('lot.part', fn ($part) => $part->where('part_number', 'like', $term));
-                    });
-                })
-                ->when($this->resultFilter !== '', fn ($query) => $query->where('result', $this->resultFilter))
-                ->latest('inspected_at')
-                ->paginate(12),
+            'reports' => $this->applySorting(
+                InspectionReport::query()
+                    ->with(['lot.part', 'standard'])
+                    ->when($this->search !== '', function ($query) {
+                        $term = '%'.$this->search.'%';
+                        $query->where(function ($query) use ($term) {
+                            $query->where('report_number', 'like', $term)
+                                ->orWhereHas('lot', fn ($lot) => $lot->where('lot_number', 'like', $term))
+                                ->orWhereHas('lot.part', fn ($part) => $part->where('part_number', 'like', $term));
+                        });
+                    })
+                    ->when($this->resultFilter !== '', fn ($query) => $query->where('result', $this->resultFilter))
+            )->paginate(12),
         ];
     }
 }; ?>
@@ -72,9 +85,13 @@ new #[Layout('core::layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
             <thead class="bg-[var(--admin-surface-muted)]">
                 <tr>
-                    @foreach ([__('Report'), __('Batch'), __('Part'), __('Qty'), __('Sample'), __('When'), __('Result')] as $heading)
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ $heading }}</th>
-                    @endforeach
+                    <x-core::ui.sortable-th column="report_number" :label="__('Report')" />
+                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Batch') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Part') }}</th>
+                    <x-core::ui.sortable-th column="inspected_qty" :label="__('Qty')" />
+                    <x-core::ui.sortable-th column="sample_size" :label="__('Sample')" />
+                    <x-core::ui.sortable-th column="inspected_at" :label="__('When')" />
+                    <x-core::ui.sortable-th column="result" :label="__('Result')" />
                     <th></th>
                 </tr>
             </thead>
@@ -98,5 +115,5 @@ new #[Layout('core::layouts.app')] class extends Component {
             </tbody>
         </table>
     </div>
-    @if ($reports->hasPages()) <div class="mt-4">{{ $reports->links() }}</div> @endif
+    <x-core::ui.pagination :paginator="$reports" />
 </div>

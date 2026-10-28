@@ -5,12 +5,10 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Attributes\Layout;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
-use Livewire\WithFileUploads;
 use Livewire\Volt\Component;
+use Modules\Quality\Support\QualityAlertCatalog;
 
 new #[Layout('core::layouts.app')] class extends Component {
-    use WithFileUploads;
 
     public ?int $userId = null;
 
@@ -48,8 +46,35 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public $image = null;
 
+    public bool $email_alerts_enabled = false;
+
+    /** @var list<string> */
+    public array $departmentChoices = [];
+
+    public bool $departmentsAll = true;
+
+    /** @var list<string> */
+    public array $statusChoices = [];
+
+    public bool $statusesAll = true;
+
+    /** @var list<string> */
+    public array $reportChoices = [];
+
+    public bool $reportsAll = true;
+
+    /** @var list<string> */
+    public array $summaryChoices = [];
+
+    public bool $summariesAll = true;
+
     public function mount(?int $user_id = null): void
     {
+        $this->hydrateAlertGroup('departments', ['all'], array_keys(QualityAlertCatalog::DEPARTMENTS));
+        $this->hydrateAlertGroup('statuses', ['all'], array_keys(QualityAlertCatalog::STATUSES));
+        $this->hydrateAlertGroup('reports', ['all'], array_keys(QualityAlertCatalog::REPORTS));
+        $this->hydrateAlertGroup('summaries', ['all'], array_keys(QualityAlertCatalog::SUMMARIES));
+
         if ($user_id) {
             $user = User::findOrFail($user_id);
             $this->isEdit = true;
@@ -67,21 +92,69 @@ new #[Layout('core::layouts.app')] class extends Component {
             $this->user_type = (string) ($user->user_type ?? 'user');
             $this->is_active = (bool) $user->is_active;
             $this->image_path = $user->image;
+            $this->image = $user->image;
+
+            $prefs = $user->emailAlertPreferences();
+            $this->email_alerts_enabled = $prefs['enabled'];
+            $this->hydrateAlertGroup('departments', $prefs['departments'], array_keys(QualityAlertCatalog::DEPARTMENTS));
+            $this->hydrateAlertGroup('statuses', $prefs['statuses'], array_keys(QualityAlertCatalog::STATUSES));
+            $this->hydrateAlertGroup('reports', $prefs['reports'], array_keys(QualityAlertCatalog::REPORTS));
+            $this->hydrateAlertGroup('summaries', $prefs['summaries'], array_keys(QualityAlertCatalog::SUMMARIES));
         }
     }
 
     public function updatedName(): void
     {
-        if (!$this->isEdit) {
+        if (! $this->isEdit) {
             $this->username = generateUserName(trim($this->name.' '.$this->last_name));
         }
     }
 
     public function updatedLastName(): void
     {
-        if (!$this->isEdit) {
+        if (! $this->isEdit) {
             $this->username = generateUserName(trim($this->name.' '.$this->last_name));
         }
+    }
+
+    public function updatedDepartmentsAll(bool $value): void
+    {
+        $this->applyAlertAllToggle('departments', $value, array_keys(QualityAlertCatalog::DEPARTMENTS));
+    }
+
+    public function updatedDepartmentChoices(): void
+    {
+        $this->syncAlertAllFlag('departments', array_keys(QualityAlertCatalog::DEPARTMENTS));
+    }
+
+    public function updatedStatusesAll(bool $value): void
+    {
+        $this->applyAlertAllToggle('statuses', $value, array_keys(QualityAlertCatalog::STATUSES));
+    }
+
+    public function updatedStatusChoices(): void
+    {
+        $this->syncAlertAllFlag('statuses', array_keys(QualityAlertCatalog::STATUSES));
+    }
+
+    public function updatedReportsAll(bool $value): void
+    {
+        $this->applyAlertAllToggle('reports', $value, array_keys(QualityAlertCatalog::REPORTS));
+    }
+
+    public function updatedReportChoices(): void
+    {
+        $this->syncAlertAllFlag('reports', array_keys(QualityAlertCatalog::REPORTS));
+    }
+
+    public function updatedSummariesAll(bool $value): void
+    {
+        $this->applyAlertAllToggle('summaries', $value, array_keys(QualityAlertCatalog::SUMMARIES));
+    }
+
+    public function updatedSummaryChoices(): void
+    {
+        $this->syncAlertAllFlag('summaries', array_keys(QualityAlertCatalog::SUMMARIES));
     }
 
     public function allowedRoles(): array
@@ -120,7 +193,16 @@ new #[Layout('core::layouts.app')] class extends Component {
             'address' => ['nullable', 'string', 'max:5000'],
             'user_type' => ['required', 'string', Rule::in($this->allowedRoles())],
             'is_active' => ['boolean'],
-            'image' => ['nullable', 'image', 'max:2048'],
+            'image' => ['nullable', 'string', 'max:500'],
+            'email_alerts_enabled' => ['boolean'],
+            'departmentChoices' => ['array'],
+            'departmentChoices.*' => ['string', Rule::in(array_keys(QualityAlertCatalog::DEPARTMENTS))],
+            'statusChoices' => ['array'],
+            'statusChoices.*' => ['string', Rule::in(array_keys(QualityAlertCatalog::STATUSES))],
+            'reportChoices' => ['array'],
+            'reportChoices.*' => ['string', Rule::in(array_keys(QualityAlertCatalog::REPORTS))],
+            'summaryChoices' => ['array'],
+            'summaryChoices.*' => ['string', Rule::in(array_keys(QualityAlertCatalog::SUMMARIES))],
         ];
 
         if (! $this->isEdit || $this->password !== '') {
@@ -142,11 +224,17 @@ new #[Layout('core::layouts.app')] class extends Component {
             'address_line_1' => $this->address ?: null,
             'user_type' => $this->user_type,
             'is_active' => $this->is_active,
+            'email_alert_preferences' => QualityAlertCatalog::normalize([
+                'enabled' => $this->email_alerts_enabled,
+                'departments' => QualityAlertCatalog::collapseFromUi($this->departmentChoices, array_keys(QualityAlertCatalog::DEPARTMENTS)),
+                'statuses' => QualityAlertCatalog::collapseFromUi($this->statusChoices, array_keys(QualityAlertCatalog::STATUSES)),
+                'reports' => QualityAlertCatalog::collapseFromUi($this->reportChoices, array_keys(QualityAlertCatalog::REPORTS)),
+                'summaries' => QualityAlertCatalog::collapseFromUi($this->summaryChoices, array_keys(QualityAlertCatalog::SUMMARIES)),
+            ]),
         ];
 
-        if ($this->image instanceof TemporaryUploadedFile) {
-            $path = $this->image->store('avatars', 'public');
-            $payload['image'] = 'storage/'.$path;
+        if (is_string($this->image) && filled($this->image)) {
+            $payload['image'] = $this->image;
         }
 
         if ($this->password !== '') {
@@ -174,6 +262,92 @@ new #[Layout('core::layouts.app')] class extends Component {
             url: route('admin::users.list'),
         );
     }
+
+    /**
+     * @param  list<string>  $stored
+     * @param  list<string>  $particulars
+     */
+    private function hydrateAlertGroup(string $group, array $stored, array $particulars): void
+    {
+        $choices = QualityAlertCatalog::expandForUi($stored, $particulars);
+        $all = $stored === ['all'] || ($particulars !== [] && count($choices) === count($particulars));
+
+        match ($group) {
+            'departments' => [$this->departmentChoices, $this->departmentsAll] = [$choices, $all],
+            'statuses' => [$this->statusChoices, $this->statusesAll] = [$choices, $all],
+            'reports' => [$this->reportChoices, $this->reportsAll] = [$choices, $all],
+            'summaries' => [$this->summaryChoices, $this->summariesAll] = [$choices, $all],
+            default => null,
+        };
+    }
+
+    /**
+     * @param  list<string>  $particulars
+     */
+    private function applyAlertAllToggle(string $group, bool $value, array $particulars): void
+    {
+        $choices = match ($group) {
+            'departments' => $this->departmentChoices,
+            'statuses' => $this->statusChoices,
+            'reports' => $this->reportChoices,
+            'summaries' => $this->summaryChoices,
+            default => [],
+        };
+
+        $isComplete = $particulars !== []
+            && count(array_intersect($choices, $particulars)) === count($particulars);
+
+        if ($value) {
+            if (! $isComplete) {
+                $this->setAlertChoices($group, $particulars);
+            }
+
+            return;
+        }
+
+        if ($isComplete) {
+            $this->setAlertChoices($group, []);
+        }
+    }
+
+    /**
+     * @param  list<string>  $particulars
+     */
+    private function syncAlertAllFlag(string $group, array $particulars): void
+    {
+        $choices = match ($group) {
+            'departments' => $this->departmentChoices,
+            'statuses' => $this->statusChoices,
+            'reports' => $this->reportChoices,
+            'summaries' => $this->summaryChoices,
+            default => [],
+        };
+
+        $all = $particulars !== []
+            && count(array_intersect($choices, $particulars)) === count($particulars);
+
+        match ($group) {
+            'departments' => $this->departmentsAll = $all,
+            'statuses' => $this->statusesAll = $all,
+            'reports' => $this->reportsAll = $all,
+            'summaries' => $this->summariesAll = $all,
+            default => null,
+        };
+    }
+
+    /**
+     * @param  list<string>  $choices
+     */
+    private function setAlertChoices(string $group, array $choices): void
+    {
+        match ($group) {
+            'departments' => $this->departmentChoices = array_values($choices),
+            'statuses' => $this->statusChoices = array_values($choices),
+            'reports' => $this->reportChoices = array_values($choices),
+            'summaries' => $this->summaryChoices = array_values($choices),
+            default => null,
+        };
+    }
 }; ?>
 
 @php
@@ -183,11 +357,12 @@ new #[Layout('core::layouts.app')] class extends Component {
         $roleOptions = [$user_type => (User::allRoleLabels()[$user_type] ?? ucfirst($user_type))] + $roleOptions;
     }
 
-    $avatarSrc = $image_path
-        ? (str_starts_with($image_path, 'http') || str_starts_with($image_path, 'data:')
-            ? $image_path
-            : asset($image_path))
-        : null;
+    $avatarSrc = media_url($image_path);
+
+    $departmentOptions = QualityAlertCatalog::departmentLabels();
+    $statusOptions = QualityAlertCatalog::statusLabels();
+    $reportOptions = QualityAlertCatalog::reportLabels();
+    $summaryOptions = QualityAlertCatalog::summaryLabels();
 @endphp
 
 <div class="w-full space-y-6">
@@ -213,7 +388,7 @@ new #[Layout('core::layouts.app')] class extends Component {
         </x-slot:actions>
     </x-core::ui.page-header>
 
-    <form wire:submit="save" class="w-full">
+    <form wire:submit="save" class="w-full space-y-6">
         <div class="admin-card overflow-hidden">
             <div class="grid grid-cols-1 gap-5 px-6 py-6 lg:grid-cols-2">
                 {{-- Avatar --}}
@@ -230,6 +405,7 @@ new #[Layout('core::layouts.app')] class extends Component {
                         <x-core::forms.filepond
                             wire:model="image"
                             model="image"
+                            folder="avatars"
                             :label="__('Avatar Image')"
                             :description="__('Dimension: 500 × 500 pixels')"
                             :accepted-file-types="['image/png', 'image/jpeg', 'image/webp']"
@@ -288,6 +464,77 @@ new #[Layout('core::layouts.app')] class extends Component {
                 <div class="flex items-end pb-1">
                     <flux:switch wire:model="is_active" :label="__('Status (Active)')" />
                 </div>
+            </div>
+        </div>
+
+        {{-- Email alerts (admin-managed) --}}
+        <div class="admin-card overflow-hidden">
+            <div class="border-b border-zinc-200 px-6 py-4 dark:border-zinc-700">
+                <flux:heading size="lg">{{ __('Email alerts') }}</flux:heading>
+                <flux:subheading>
+                    {{ __('Only a master admin can choose what this user receives. Pick all, one, or several departments, then statuses and reports. Summaries are day wise, weekly, and monthwise.') }}
+                    <a href="{{ route('admin::settings.email-alerts') }}" class="underline" wire:navigate>{{ __('System switches live under Settings.') }}</a>
+                </flux:subheading>
+            </div>
+
+            <div class="space-y-6 px-6 py-6">
+                <flux:switch wire:model.live="email_alerts_enabled" :label="__('Send quality email alerts to this user')" />
+
+                @if ($email_alerts_enabled)
+                    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-4">
+                        <x-core::forms.alert-checks :legend="__('Departments')" :hint="__('All, one department, or both.')">
+                            <label class="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-700 dark:text-zinc-300">
+                                <input type="checkbox" wire:model.live="departmentsAll" class="size-4 shrink-0 rounded border-zinc-300 text-[var(--admin-primary)] focus:ring-[var(--admin-primary)]">
+                                <span class="font-medium">{{ __('All departments') }}</span>
+                            </label>
+                            @foreach ($departmentOptions as $value => $label)
+                                <label class="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-700 dark:text-zinc-300">
+                                    <input type="checkbox" value="{{ $value }}" wire:model.live="departmentChoices" class="size-4 shrink-0 rounded border-zinc-300 text-[var(--admin-primary)] focus:ring-[var(--admin-primary)]">
+                                    <span>{{ $label }}</span>
+                                </label>
+                            @endforeach
+                        </x-core::forms.alert-checks>
+
+                        <x-core::forms.alert-checks :legend="__('Status')" :hint="__('Overdue, pending, and completed.')">
+                            <label class="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-700 dark:text-zinc-300">
+                                <input type="checkbox" wire:model.live="statusesAll" class="size-4 shrink-0 rounded border-zinc-300 text-[var(--admin-primary)] focus:ring-[var(--admin-primary)]">
+                                <span class="font-medium">{{ __('All statuses') }}</span>
+                            </label>
+                            @foreach ($statusOptions as $value => $label)
+                                <label class="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-700 dark:text-zinc-300">
+                                    <input type="checkbox" value="{{ $value }}" wire:model.live="statusChoices" class="size-4 shrink-0 rounded border-zinc-300 text-[var(--admin-primary)] focus:ring-[var(--admin-primary)]">
+                                    <span>{{ $label }}</span>
+                                </label>
+                            @endforeach
+                        </x-core::forms.alert-checks>
+
+                        <x-core::forms.alert-checks :legend="__('Reports')" :hint="__('PO vs PI and incoming inspection reports.')">
+                            <label class="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-700 dark:text-zinc-300">
+                                <input type="checkbox" wire:model.live="reportsAll" class="size-4 shrink-0 rounded border-zinc-300 text-[var(--admin-primary)] focus:ring-[var(--admin-primary)]">
+                                <span class="font-medium">{{ __('All reports') }}</span>
+                            </label>
+                            @foreach ($reportOptions as $value => $label)
+                                <label class="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-700 dark:text-zinc-300">
+                                    <input type="checkbox" value="{{ $value }}" wire:model.live="reportChoices" class="size-4 shrink-0 rounded border-zinc-300 text-[var(--admin-primary)] focus:ring-[var(--admin-primary)]">
+                                    <span>{{ $label }}</span>
+                                </label>
+                            @endforeach
+                        </x-core::forms.alert-checks>
+
+                        <x-core::forms.alert-checks :legend="__('Summaries')" :hint="__('Day wise, weekly, and monthwise.')">
+                            <label class="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-700 dark:text-zinc-300">
+                                <input type="checkbox" wire:model.live="summariesAll" class="size-4 shrink-0 rounded border-zinc-300 text-[var(--admin-primary)] focus:ring-[var(--admin-primary)]">
+                                <span class="font-medium">{{ __('All summaries') }}</span>
+                            </label>
+                            @foreach ($summaryOptions as $value => $label)
+                                <label class="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-700 dark:text-zinc-300">
+                                    <input type="checkbox" value="{{ $value }}" wire:model.live="summaryChoices" class="size-4 shrink-0 rounded border-zinc-300 text-[var(--admin-primary)] focus:ring-[var(--admin-primary)]">
+                                    <span>{{ $label }}</span>
+                                </label>
+                            @endforeach
+                        </x-core::forms.alert-checks>
+                    </div>
+                @endif
             </div>
 
             <div class="flex items-center justify-center gap-3 border-t border-zinc-200 bg-[var(--admin-surface-muted)] px-6 py-4 dark:border-zinc-700">

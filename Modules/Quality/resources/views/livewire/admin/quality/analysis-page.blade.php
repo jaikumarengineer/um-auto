@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\WithSorting;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Modules\Quality\Models\IncomingLot;
@@ -8,6 +9,8 @@ use Modules\Quality\Services\QualityAnalysis;
 use Modules\Quality\Support\Qty;
 
 new #[Layout('core::layouts.app')] class extends Component {
+    use WithSorting;
+
     public string $traceMode = 'part';
 
     public ?int $partId = null;
@@ -16,11 +19,65 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public ?int $compareLotId = null;
 
+    /** @var 'day'|'week'|'month'|'year' */
+    public string $graphPeriod = 'day';
+
+    /** Flatpickr range value, e.g. "2026-01-01 to 2026-01-31". */
+    public string $graphDateRange = '';
+
+    public string $sortBy = 'po';
+
+    public string $sortDirection = 'asc';
+
+    protected array $sortable = ['po', 'vendor', 'status', 'ordered', 'invoiced', 'balance'];
+
     public function mount(): void
     {
         $this->partId = IncomingPart::query()->orderBy('part_number')->value('id');
         $this->lotId = IncomingLot::query()->latest('received_at')->value('id');
         $this->compareLotId = IncomingLot::query()->whereHas('reports')->latest('received_at')->value('id');
+        $this->applyPeriodDefaults('day');
+    }
+
+    public function updatedGraphPeriod(string $period): void
+    {
+        if (! in_array($period, ['day', 'week', 'month', 'year'], true)) {
+            $this->graphPeriod = 'day';
+            $period = 'day';
+        }
+
+        $this->applyPeriodDefaults($period);
+    }
+
+    protected function applyPeriodDefaults(string $period): void
+    {
+        [$from, $to] = match ($period) {
+            'week' => [now()->subWeeks(11)->startOfWeek(), now()],
+            'month' => [now()->subMonths(11)->startOfMonth(), now()],
+            'year' => [now()->subYears(2)->startOfYear(), now()],
+            default => [now()->subDays(29), now()],
+        };
+
+        $this->graphDateRange = $from->toDateString().' to '.$to->toDateString();
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    protected function graphRangeDates(): array
+    {
+        $parts = preg_split('/\s+to\s+/i', trim($this->graphDateRange)) ?: [];
+        $from = $parts[0] ?? '';
+        $to = $parts[1] ?? $parts[0] ?? '';
+
+        if ($from === '' || ! strtotime($from)) {
+            $from = now()->subDays(29)->toDateString();
+        }
+        if ($to === '' || ! strtotime($to)) {
+            $to = now()->toDateString();
+        }
+
+        return [$from, $to];
     }
 
     public function audience(): string
@@ -30,10 +87,27 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function with(QualityAnalysis $analysis): array
     {
-        return array_merge(
-            $analysis->dashboard($this->partId, $this->lotId, $this->compareLotId, $this->audience()),
-            ['audience' => $this->audience()],
-        );
+        $dashboard = $analysis->dashboard($this->partId, $this->lotId, $this->compareLotId, $this->audience());
+        $balances = collect($dashboard['balances'] ?? []);
+
+        $sortBy = in_array($this->sortBy, $this->sortable, true) ? $this->sortBy : 'po';
+        $balances = ($this->sortDirection === 'desc'
+            ? $balances->sortByDesc($sortBy)
+            : $balances->sortBy($sortBy)
+        )->values();
+
+        [$from, $to] = $this->graphRangeDates();
+        $purchaseGraph = $analysis->purchaseGraph($this->graphPeriod, $from, $to);
+
+        return array_merge($dashboard, [
+            'audience' => $this->audience(),
+            'balances' => $balances,
+            'purchase_graph' => $purchaseGraph,
+            'monthly_chart' => $analysis->getMonthlyLineChart(),
+            'yearly_chart' => $analysis->getYearlyBarChart(),
+            'mtd' => $analysis->getMtdStats(),
+            'ytd' => $analysis->getYtdStats(),
+        ]);
     }
 }; ?>
 
@@ -76,6 +150,16 @@ new #[Layout('core::layouts.app')] class extends Component {
                 <p class="mt-1 text-xs text-zinc-500">{{ __(':count overdue', ['count' => $overdue]) }}</p>
             </div>
         @endif
+        @if ($audience === 'master')
+            <div class="admin-card p-5">
+                <p class="text-sm text-zinc-500">{{ __('MTD (PO / Inspection)') }}</p>
+                <p class="mt-1 text-2xl font-semibold tabular-nums">{{ $mtd['po_count'] }} / {{ $mtd['inspection_count'] }}</p>
+            </div>
+            <div class="admin-card p-5">
+                <p class="text-sm text-zinc-500">{{ __('YTD (PO / Inspection)') }}</p>
+                <p class="mt-1 text-2xl font-semibold tabular-nums">{{ $ytd['po_count'] }} / {{ $ytd['inspection_count'] }}</p>
+            </div>
+        @endif
     </section>
 
     <section class="grid gap-4 xl:grid-cols-2">
@@ -94,10 +178,37 @@ new #[Layout('core::layouts.app')] class extends Component {
         </div>
         @endif
         @if (in_array($audience, ['master', 'purchase'], true))
-        <div class="admin-card p-4">
-            <flux:heading>{{ __('PO vs PI till now') }}</flux:heading>
-            <div class="mt-4">
-                <x-core::charts.chart type="bar" :dataset="$po_chart" :height="280" />
+        <div class="admin-card p-4 {{ $audience === 'purchase' ? 'xl:col-span-2' : '' }}">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <flux:heading>{{ __('Vendor Wise PO Vs PI') }}</flux:heading>
+                    <p class="mt-1 text-sm text-zinc-500">{{ __('Y-axis: Quantity, X-axis: ' . ($graphPeriod === 'day' ? __('Vendor') : __('Time'))) }}</p>
+                </div>
+                <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end sm:justify-end">
+                    <div class="sm:w-40">
+                        <flux:select wire:model.live="graphPeriod" :label="__('Period')">
+                            <flux:select.option value="day">{{ __('Vendor wise') }}</flux:select.option>
+                            <flux:select.option value="week">{{ __('Weekly') }}</flux:select.option>
+                            <flux:select.option value="month">{{ __('Monthwise') }}</flux:select.option>
+                            <flux:select.option value="year">{{ __('Year wise') }}</flux:select.option>
+                        </flux:select>
+                    </div>
+                    <div class="sm:w-64" wire:key="graph-range-picker-{{ $graphPeriod }}">
+                        <x-core::forms.flatpickr
+                            wire:model="graphDateRange"
+                            mode="range"
+                            :label="__('Date range')"
+                            :placeholder="__('Select date range…')"
+                        />
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4" wire:key="purchase-graph-{{ $graphPeriod }}-{{ $graphDateRange }}">
+                <x-core::charts.chart
+                    :type="$purchase_graph['type']"
+                    :dataset="$purchase_graph['dataset']"
+                    :height="280"
+                />
             </div>
         </div>
         @endif
@@ -106,6 +217,18 @@ new #[Layout('core::layouts.app')] class extends Component {
             <flux:heading>{{ __('Last 14 days') }}</flux:heading>
             <div class="mt-4">
                 <x-core::charts.chart type="line" :dataset="$daily" :height="280" />
+            </div>
+        </div>
+        <div class="admin-card p-4">
+            <flux:heading>{{ __('Monthly trend') }}</flux:heading>
+            <div class="mt-4">
+                <x-core::charts.chart type="line" :dataset="$monthly_chart" :height="280" />
+            </div>
+        </div>
+        <div class="admin-card p-4">
+            <flux:heading>{{ __('Yearly trend') }}</flux:heading>
+            <div class="mt-4">
+                <x-core::charts.chart type="bar" :dataset="$yearly_chart" :height="280" />
             </div>
         </div>
         @endif
@@ -156,22 +279,37 @@ new #[Layout('core::layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
             <thead>
                 <tr>
-                    @foreach ([__('PO'), __('Vendor'), __('Status'), __('Ordered'), __('Invoiced'), __('Balance')] as $heading)
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ $heading }}</th>
-                    @endforeach
+                    <x-core::ui.sortable-th column="po" :label="__('PO / PI')" :sort-by="$sortBy" :sort-direction="$sortDirection" />
+                    <x-core::ui.sortable-th column="vendor" :label="__('Vendor')" :sort-by="$sortBy" :sort-direction="$sortDirection" />
+                    <x-core::ui.sortable-th column="status" :label="__('Status')" :sort-by="$sortBy" :sort-direction="$sortDirection" />
+                    <x-core::ui.sortable-th column="ordered" :label="__('Ordered')" :sort-by="$sortBy" :sort-direction="$sortDirection" />
+                    <x-core::ui.sortable-th column="invoiced" :label="__('Invoiced')" :sort-by="$sortBy" :sort-direction="$sortDirection" />
+                    <x-core::ui.sortable-th column="balance" :label="__('Balance')" :sort-by="$sortBy" :sort-direction="$sortDirection" />
                 </tr>
             </thead>
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                @foreach ($balances as $row)
-                    <tr>
-                        <td class="px-4 py-3 text-sm"><a class="text-primary hover:underline" href="{{ $row['url'] }}">{{ $row['po'] }}</a></td>
-                        <td class="px-4 py-3 text-sm">{{ $row['vendor'] }}</td>
+                @forelse ($balances as $row)
+                    <tr wire:key="balance-{{ $row['po'] }}">
+                        <td class="px-4 py-3 text-sm">
+                            <a class="text-primary hover:underline" href="{{ $row['url'] }}">{{ $row['po'] }}</a>
+                            @if ($row['pi'])
+                                <br><span class="text-xs text-zinc-500">{{ $row['pi'] }}</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            {{ $row['vendor'] }}
+                            @if ($row['vendor_code'])
+                                <br><span class="text-xs text-zinc-500">{{ $row['vendor_code'] }}</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-3"><x-quality::status-pill :status="$row['status']" /> @if ($row['overdue']) <span class="ms-1 text-xs text-red-600">{{ __('Overdue') }}</span> @endif</td>
                         <td class="px-4 py-3 text-sm tabular-nums">{{ Qty::format($row['ordered']) }}</td>
                         <td class="px-4 py-3 text-sm tabular-nums">{{ Qty::format($row['invoiced']) }}</td>
                         <td class="px-4 py-3 text-sm tabular-nums">{{ Qty::format($row['balance']) }}</td>
                     </tr>
-                @endforeach
+                @empty
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-sm text-zinc-500">{{ __('No purchase orders yet.') }}</td></tr>
+                @endforelse
             </tbody>
         </table>
     </section>

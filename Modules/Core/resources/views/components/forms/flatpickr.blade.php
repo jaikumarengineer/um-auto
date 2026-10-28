@@ -44,6 +44,7 @@
                     disableMobile: true,
                     onChange: (selectedDates, dateStr) => {
                         @if ($name)
+                            if (@js($mode === 'range') && selectedDates.length < 2) return;
                             $wire.set(@js($name), dateStr);
                         @endif
                     },

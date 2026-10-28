@@ -82,3 +82,37 @@ if (! function_exists('admin_breadcrumb_home')) {
         ];
     }
 }
+
+if (! function_exists('media_url')) {
+    /**
+     * Build a browser URL for a stored media path (uploads/..., storage/..., absolute, or data URI).
+     */
+    function media_url(mixed $path): ?string
+    {
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        $path = trim($path);
+
+        if (
+            str_starts_with($path, 'http://')
+            || str_starts_with($path, 'https://')
+            || str_starts_with($path, 'data:')
+            || str_starts_with($path, '//')
+        ) {
+            return $path;
+        }
+
+        // Legacy Livewire public-disk paths were stored without the "storage/" prefix.
+        if (
+            ! str_starts_with($path, 'uploads/')
+            && ! str_starts_with($path, 'storage/')
+            && ! str_starts_with($path, '/')
+        ) {
+            $path = 'storage/'.ltrim($path, '/');
+        }
+
+        return asset(ltrim($path, '/'));
+    }
+}

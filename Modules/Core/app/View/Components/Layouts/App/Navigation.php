@@ -194,6 +194,12 @@ class Navigation extends Component
                             'active' => request()->routeIs('admin::settings.mail'),
                         ],
                         [
+                            'label' => __('Email alerts'),
+                            'route' => 'admin::settings.email-alerts',
+                            'icon' => 'bell-alert',
+                            'active' => request()->routeIs('admin::settings.email-alerts'),
+                        ],
+                        [
                             'label' => __('Server Logs'),
                             'route' => 'admin::settings.logs',
                             'icon' => 'document-magnifying-glass',

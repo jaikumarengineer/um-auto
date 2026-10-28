@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\EditorUploadController;
+use App\Http\Controllers\Admin\FileUploadController;
 use Illuminate\Support\Facades\Route;
 use Modules\Core\Http\Controllers\CoreController;
 use Modules\Core\Http\Middleware\AdminLayoutMiddleware;
@@ -29,6 +30,10 @@ Route::group([
     ], function () {
 
         Route::livewire('profile', 'admin.settings.profile-page')->name('profile');
+
+        // FilePond uploads (any authenticated admin: master / purchase / incoming)
+        Route::post('file-upload', [FileUploadController::class, 'upload'])->name('file-upload');
+        Route::delete('file-upload', [FileUploadController::class, 'revert'])->name('file-upload.revert');
 
         Route::middleware(['quality.role:master'])->group(function () {
 
@@ -67,6 +72,7 @@ Route::group([
                 Route::livewire('general', 'admin.settings.general-setting-page')->name('general');
                 Route::livewire('website', 'admin.settings.website-setting-page')->name('website');
                 Route::livewire('mail', 'admin.settings.mail-setting-page')->name('mail');
+                Route::livewire('email-alerts', 'admin.settings.email-alerts-page')->name('email-alerts');
                 Route::livewire('logs', 'admin.settings.server-log-page')->name('logs');
                 Route::livewire('server-info', 'admin.settings.server-info-page')->name('server-info');
                 Route::group([

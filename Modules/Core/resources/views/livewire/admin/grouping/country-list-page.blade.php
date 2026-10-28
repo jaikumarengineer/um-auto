@@ -1,6 +1,7 @@
 <?php
 
 use App\Concerns\NotifiesWithSweetAlert;
+use App\Concerns\WithSorting;
 use App\Livewire\Forms\CountryForm;
 use App\Models\Country;
 use Livewire\Attributes\Layout;
@@ -8,7 +9,9 @@ use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
 new #[Layout('core::layouts.app')] class extends Component {
-    use WithPagination, NotifiesWithSweetAlert;
+    use NotifiesWithSweetAlert;
+    use WithPagination;
+    use WithSorting;
 
     public CountryForm $form;
 
@@ -53,22 +56,6 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function updatingPerPage(): void
     {
-        $this->resetPage();
-    }
-
-    public function sort(string $column): void
-    {
-        if (! in_array($column, $this->sortable, true)) {
-            return;
-        }
-
-        if ($this->sortBy === $column) {
-            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
-        } else {
-            $this->sortBy = $column;
-            $this->sortDirection = 'asc';
-        }
-
         $this->resetPage();
     }
 
@@ -123,25 +110,22 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function with(): array
     {
-        $sortBy = in_array($this->sortBy, $this->sortable, true) ? $this->sortBy : 'nicename';
-        $sortDirection = $this->sortDirection === 'desc' ? 'desc' : 'asc';
+        $countries = $this->applySorting(
+            Country::query()
+                ->when($this->search, function ($query) {
+                    $term = '%'.$this->search.'%';
 
-        $countries = Country::query()
-            ->when($this->search, function ($query) {
-                $term = '%'.$this->search.'%';
-
-                $query->where(function ($query) use ($term) {
-                    $query->where('name', 'like', $term)
-                        ->orWhere('nicename', 'like', $term)
-                        ->orWhere('iso', 'like', $term)
-                        ->orWhere('iso3', 'like', $term)
-                        ->orWhere('phonecode', 'like', $term)
-                        ->orWhere('timezone', 'like', $term);
-                });
-            })
-            ->when($this->statusFilter !== '', fn ($query) => $query->where('status', (bool) $this->statusFilter))
-            ->orderBy($sortBy, $sortDirection)
-            ->paginate($this->perPage);
+                    $query->where(function ($query) use ($term) {
+                        $query->where('name', 'like', $term)
+                            ->orWhere('nicename', 'like', $term)
+                            ->orWhere('iso', 'like', $term)
+                            ->orWhere('iso3', 'like', $term)
+                            ->orWhere('phonecode', 'like', $term)
+                            ->orWhere('timezone', 'like', $term);
+                    });
+                })
+                ->when($this->statusFilter !== '', fn ($query) => $query->where('status', (bool) $this->statusFilter))
+        )->paginate($this->perPage);
 
         return compact('countries');
     }
@@ -192,35 +176,12 @@ new #[Layout('core::layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
             <thead class="bg-[var(--admin-surface-muted)]">
                 <tr>
-                    @php
-                        $headers = [
-                            'id' => ['label' => '#', 'align' => 'left'],
-                            'iso' => ['label' => __('ISO'), 'align' => 'left'],
-                            'nicename' => ['label' => __('Country'), 'align' => 'left'],
-                            'phonecode' => ['label' => __('Phone'), 'align' => 'left'],
-                            'timezone' => ['label' => __('Timezone'), 'align' => 'left'],
-                            'status' => ['label' => __('Status'), 'align' => 'center'],
-                        ];
-                    @endphp
-                    @foreach ($headers as $column => $meta)
-                        <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 {{ $meta['align'] === 'center' ? 'text-center' : 'text-left' }}">
-                            <button
-                                type="button"
-                                wire:click="sort('{{ $column }}')"
-                                class="inline-flex items-center gap-1 transition-colors hover:text-primary {{ $meta['align'] === 'center' ? 'justify-center' : '' }}"
-                            >
-                                <span>{{ $meta['label'] }}</span>
-                                @if ($sortBy === $column)
-                                    <flux:icon
-                                        :name="$sortDirection === 'asc' ? 'chevron-up' : 'chevron-down'"
-                                        class="size-3.5 text-primary"
-                                    />
-                                @else
-                                    <flux:icon.chevron-up-down class="size-3.5 opacity-40" />
-                                @endif
-                            </button>
-                        </th>
-                    @endforeach
+                    <x-core::ui.sortable-th column="id" label="#" />
+                    <x-core::ui.sortable-th column="iso" :label="__('ISO')" />
+                    <x-core::ui.sortable-th column="nicename" :label="__('Country')" />
+                    <x-core::ui.sortable-th column="phonecode" :label="__('Phone')" />
+                    <x-core::ui.sortable-th column="timezone" :label="__('Timezone')" />
+                    <x-core::ui.sortable-th column="status" :label="__('Status')" align="center" />
                     <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         {{ __('Actions') }}
                     </th>
@@ -326,11 +287,7 @@ new #[Layout('core::layouts.app')] class extends Component {
         </table>
     </div>
 
-    @if ($countries->hasPages())
-        <div class="mt-4">
-            {{ $countries->links() }}
-        </div>
-    @endif
+    <x-core::ui.pagination :paginator="$countries" />
 
     {{-- Edit flyout --}}
     <flux:modal

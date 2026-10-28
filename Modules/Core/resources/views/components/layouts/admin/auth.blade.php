@@ -172,35 +172,32 @@
                 </div>
             </div>
 
-            {{-- Right: UM Auto plant slider --}}
+            {{-- Right: food & medical product slider --}}
             @php
-                $plantSlides = [
+                $productSlides = [
                     [
-                        'image' => asset('assets/auth/plants/manesar.jpg'),
-                        'title' => __('Manesar Plant'),
-                        'location' => __('IMT Manesar, Haryana'),
-                        'caption' => __('Precision auto components at our Manesar facility.'),
+                        'file' => 'assets/auth/products/food.jpg',
+                        'alt' => __('Food products'),
                     ],
                     [
-                        'image' => asset('assets/auth/plants/bhagwanpur.jpg'),
-                        'title' => __('Bhagwanpur Plant'),
-                        'location' => __('Bhagwanpur, Uttarakhand'),
-                        'caption' => __('World-class manufacturing in the foothills of Uttarakhand.'),
-                    ],
-                    [
-                        'image' => asset('assets/auth/plants/saharanpur.jpg'),
-                        'title' => __('Saharanpur Plant'),
-                        'location' => __('Saharanpur, Uttar Pradesh'),
-                        'caption' => __('High-volume production powering India’s automotive supply chain.'),
+                        'file' => 'assets/auth/products/medical.jpg',
+                        'alt' => __('Medical products'),
                     ],
                 ];
+
+                $productSlides = array_map(function (array $slide) {
+                    $path = public_path($slide['file']);
+                    $slide['src'] = asset($slide['file']).'?v='.(is_file($path) ? filemtime($path) : time());
+
+                    return $slide;
+                }, $productSlides);
             @endphp
 
             <div
                 class="admin-auth-brand relative min-h-dvh overflow-hidden text-white"
                 x-data="{
                     active: 0,
-                    total: {{ count($plantSlides) }},
+                    total: {{ count($productSlides) }},
                     timer: null,
                     start() {
                         this.stop();
@@ -225,18 +222,18 @@
                 x-on:mouseleave="start()"
                 role="region"
                 aria-roledescription="carousel"
-                aria-label="{{ __('UM Auto plants') }}"
+                aria-label="{{ __('Product gallery') }}"
             >
                 <div class="absolute inset-0">
-                    @foreach ($plantSlides as $index => $slide)
+                    @foreach ($productSlides as $index => $slide)
                         <div
                             class="admin-auth-slide absolute inset-0 {{ $index === 0 ? 'is-active' : '' }}"
                             :class="{ 'is-active': active === {{ $index }} }"
                             x-bind:aria-hidden="active !== {{ $index }}"
                         >
                             <img
-                                src="{{ $slide['image'] }}"
-                                alt="{{ $slide['title'] }}"
+                                src="{{ $slide['src'] }}"
+                                alt="{{ $slide['alt'] }}"
                                 class="h-full w-full object-cover"
                                 @if ($index === 0) fetchpriority="high" @else loading="lazy" @endif
                             />
@@ -244,43 +241,19 @@
                     @endforeach
                 </div>
 
-                <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/15"></div>
-                <div class="pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-black/20 to-transparent"></div>
+                <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10"></div>
 
-                <div class="relative z-10 flex h-full min-h-dvh flex-col justify-end px-10 pb-12 pt-16">
-                    <div class="admin-auth-enter admin-auth-enter-2 max-w-xl">
-                        @foreach ($plantSlides as $index => $slide)
-                            <div
-                                @if ($index !== 0) x-cloak @endif
-                                x-show="active === {{ $index }}"
-                                x-transition.opacity.duration.400ms
-                            >
-                                <p class="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/70">
-                                    {{ __('UM Auto plants') }}
-                                </p>
-                                <h2 class="text-3xl font-semibold tracking-tight xl:text-4xl">
-                                    {{ $slide['title'] }}
-                                </h2>
-                                <p class="mt-1 text-sm font-medium text-[color-mix(in_srgb,var(--admin-primary)_55%,white)]">
-                                    {{ $slide['location'] }}
-                                </p>
-                                <p class="mt-3 max-w-md text-sm leading-relaxed text-white/80 xl:text-base">
-                                    {{ $slide['caption'] }}
-                                </p>
-                            </div>
-                        @endforeach
-                    </div>
-
-                    <div class="mt-8 flex items-center justify-between gap-4">
-                        <div class="flex items-center gap-2" role="tablist" aria-label="{{ __('Plant slides') }}">
-                            @foreach ($plantSlides as $index => $slide)
+                <div class="relative z-10 flex h-full min-h-dvh flex-col justify-end px-10 pb-12">
+                    <div class="flex items-center justify-between gap-4">
+                        <div class="flex items-center gap-2" role="tablist" aria-label="{{ __('Product slides') }}">
+                            @foreach ($productSlides as $index => $slide)
                                 <button
                                     type="button"
                                     class="h-2.5 rounded-full transition-all duration-300"
                                     :class="active === {{ $index }} ? 'w-8 bg-white' : 'w-2.5 bg-white/40 hover:bg-white/70'"
                                     x-on:click="go({{ $index }})"
                                     :aria-selected="active === {{ $index }}"
-                                    aria-label="{{ __('Show :plant', ['plant' => $slide['title']]) }}"
+                                    aria-label="{{ __('Show slide :number', ['number' => $index + 1]) }}"
                                 ></button>
                             @endforeach
                         </div>
@@ -290,7 +263,7 @@
                                 type="button"
                                 class="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white backdrop-blur-sm transition hover:bg-white/20"
                                 x-on:click="prev(); start()"
-                                aria-label="{{ __('Previous plant') }}"
+                                aria-label="{{ __('Previous slide') }}"
                             >
                                 <flux:icon.chevron-left variant="mini" class="size-5" />
                             </button>
@@ -298,7 +271,7 @@
                                 type="button"
                                 class="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white backdrop-blur-sm transition hover:bg-white/20"
                                 x-on:click="next(); start()"
-                                aria-label="{{ __('Next plant') }}"
+                                aria-label="{{ __('Next slide') }}"
                             >
                                 <flux:icon.chevron-right variant="mini" class="size-5" />
                             </button>

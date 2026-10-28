@@ -1,11 +1,9 @@
 <?php
 
 use Livewire\Attributes\Layout;
-use Livewire\WithFileUploads;
 use Livewire\Volt\Component;
 
 new #[Layout('core::layouts.app')] class extends Component {
-    use WithFileUploads;
 
     public string $country = 'us';
 
@@ -178,7 +176,7 @@ new #[Layout('core::layouts.app')] class extends Component {
         </div>
 
         <div class="admin-card space-y-5 p-6">
-            <x-core::forms.filepond wire:model="demo_file" model="demo_file" :label="__('Upload')" />
+            <x-core::forms.filepond wire:model="demo_file" model="demo_file" folder="uploads" :label="__('Upload')" />
             <x-core::forms.editor wire:model="bio" :label="__('Bio (CKEditor 5)')" />
             <x-core::forms.ckeditor4 wire:model="bio4" :label="__('Bio (CKEditor 4 + image upload)')" :height="280" />
             <x-core::forms.tiptap wire:model="bio_tiptap" :label="__('Bio (Tiptap + image upload)')" :height="240" />

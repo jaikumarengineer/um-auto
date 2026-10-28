@@ -1,19 +1,30 @@
 <?php
 
 use App\Concerns\NotifiesWithSweetAlert;
+use App\Concerns\WithSorting;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Modules\Quality\Models\QualityAlert;
 use Modules\Quality\Services\QualityDigest;
+use Modules\Quality\Support\QualityAlertCatalog;
 
 new #[Layout('core::layouts.app')] class extends Component {
     use NotifiesWithSweetAlert;
     use WithPagination;
+    use WithSorting;
 
     public string $channel = '';
 
     public string $type = '';
+
+    public string $cadence = 'daily';
+
+    public string $sortBy = 'id';
+
+    public string $sortDirection = 'desc';
+
+    protected array $sortable = ['alert_on', 'channel', 'subject', 'recipient', 'status', 'id'];
 
     public bool $showBody = false;
 
@@ -35,40 +46,25 @@ new #[Layout('core::layouts.app')] class extends Component {
     public function allowedTypes(): array
     {
         $user = auth()->user();
+        $department = match (true) {
+            $user?->isPurchase() && ! $user->isMaster() => 'purchase',
+            $user?->isIncoming() && ! $user->isMaster() => 'incoming',
+            default => null,
+        };
 
-        if ($user?->isPurchase() && ! $user->isMaster()) {
-            return [
-                'purchase_summary' => __('Day summary'),
-                'po_vs_pi' => __('PO vs PI'),
-                'overdue_po' => __('Overdue PO'),
-            ];
-        }
-
-        if ($user?->isIncoming() && ! $user->isMaster()) {
-            return [
-                'incoming_summary' => __('Day summary'),
-                'uninspected_lots' => __('Waiting inspection'),
-                'quality_hold' => __('Quality hold'),
-            ];
-        }
-
-        return [
-            'daily_summary' => __('Day summary'),
-            'purchase_summary' => __('Purchase summary'),
-            'incoming_summary' => __('Incoming summary'),
-            'po_vs_pi' => __('PO vs PI'),
-            'overdue_po' => __('Overdue PO'),
-            'uninspected_lots' => __('Waiting inspection'),
-            'quality_hold' => __('Quality hold'),
-        ];
+        return QualityAlertCatalog::labelsFor($department, includeLegacy: true);
     }
 
     public function generate(QualityDigest $digest): void
     {
         abort_unless(auth()->user()?->isMaster(), 403);
 
-        $digest->generate(now());
-        $this->notifySuccess(__('Today’s email and WhatsApp alerts are ready.'));
+        if (! in_array($this->cadence, ['daily', 'weekly', 'monthly'], true)) {
+            $this->cadence = 'daily';
+        }
+
+        $digest->generate(now(), sendMail: true, cadence: $this->cadence);
+        $this->notifySuccess(__('Alerts for this period are ready.'));
     }
 
     public function read(int $id): void
@@ -85,13 +81,12 @@ new #[Layout('core::layouts.app')] class extends Component {
         $types = $this->allowedTypes();
 
         return [
-            'alerts' => QualityAlert::query()
-                ->whereIn('alert_type', array_keys($types))
-                ->when($this->channel !== '', fn ($query) => $query->where('channel', $this->channel))
-                ->when($this->type !== '', fn ($query) => $query->where('alert_type', $this->type))
-                ->latest('id')
-                ->paginate(12),
-            'email' => config('quality.alert_email'),
+            'alerts' => $this->applySorting(
+                QualityAlert::query()
+                    ->whereIn('alert_type', array_keys($types))
+                    ->when($this->channel !== '', fn ($query) => $query->where('channel', $this->channel))
+                    ->when($this->type !== '', fn ($query) => $query->where('alert_type', $this->type))
+            )->paginate(12),
             'whatsapp' => config('quality.alert_whatsapp'),
             'alertTypes' => $types,
             'canSend' => (bool) auth()->user()?->isMaster(),
@@ -102,7 +97,7 @@ new #[Layout('core::layouts.app')] class extends Component {
 <div>
     <x-core::ui.page-header
         :title="__('Alerts')"
-        :subtitle="__('Day summary, PO versus PI, overdue orders, batches waiting inspection, and quality holds.')"
+        :subtitle="__('Overdue, pending, and completed mail for PO vs PI and incoming inspection, plus day, week, and month summaries. Recipients are set per user.')"
         :breadcrumbs="[
             admin_breadcrumb_home(),
             ['label' => __('Alerts')],
@@ -111,19 +106,26 @@ new #[Layout('core::layouts.app')] class extends Component {
         <x-slot:actions>
             @if ($canSend)
                 <flux:button variant="primary" icon="bell-alert" wire:click="generate" wire:loading.attr="disabled">
-                    {{ __('Build today’s alerts') }}
+                    {{ __('Build alerts') }}
                 </flux:button>
             @endif
         </x-slot:actions>
     </x-core::ui.page-header>
 
     <div class="mb-4 admin-card p-4 text-sm text-zinc-600 dark:text-zinc-300">
-        <p>{{ __('Email goes to :email through the mailer in settings. WhatsApp to :phone is stored here so you can read the message. Connect a WhatsApp provider when you want it delivered.', ['email' => $email, 'phone' => $whatsapp]) }}</p>
-        <p class="mt-2">{{ __('The same digest runs every day at 18:00 with `php artisan quality:daily-digest`, or from the scheduler.') }}</p>
+        <p>{{ __('Email goes to subscribed users through the mailer in settings. If nobody is subscribed, it uses the fallback inbox. WhatsApp to :phone is stored here so you can read the message.', ['phone' => $whatsapp]) }}</p>
+        <p class="mt-2">{{ __('Daily mail runs at the time in Email alert settings. Weekly summaries run Sunday, monthwise summaries on the last day, via `php artisan quality:digest`.') }}</p>
     </div>
 
     <div class="mb-4 admin-card p-3">
-        <div class="grid gap-3 md:grid-cols-2">
+        <div class="grid gap-3 md:grid-cols-3">
+            @if ($canSend)
+                <flux:select wire:model="cadence">
+                    <flux:select.option value="daily">{{ __('Day wise') }}</flux:select.option>
+                    <flux:select.option value="weekly">{{ __('Weekly') }}</flux:select.option>
+                    <flux:select.option value="monthly">{{ __('Monthwise') }}</flux:select.option>
+                </flux:select>
+            @endif
             <flux:select wire:model.live="channel">
                 <flux:select.option value="">{{ __('Email and WhatsApp') }}</flux:select.option>
                 <flux:select.option value="email">{{ __('Email') }}</flux:select.option>
@@ -142,9 +144,11 @@ new #[Layout('core::layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
             <thead class="bg-[var(--admin-surface-muted)]">
                 <tr>
-                    @foreach ([__('When'), __('Channel'), __('Alert'), __('To'), __('Status')] as $heading)
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ $heading }}</th>
-                    @endforeach
+                    <x-core::ui.sortable-th column="alert_on" :label="__('When')" />
+                    <x-core::ui.sortable-th column="channel" :label="__('Channel')" />
+                    <x-core::ui.sortable-th column="subject" :label="__('Alert')" />
+                    <x-core::ui.sortable-th column="recipient" :label="__('To')" />
+                    <x-core::ui.sortable-th column="status" :label="__('Status')" />
                     <th></th>
                 </tr>
             </thead>
@@ -166,7 +170,7 @@ new #[Layout('core::layouts.app')] class extends Component {
             </tbody>
         </table>
     </div>
-    @if ($alerts->hasPages()) <div class="mt-4">{{ $alerts->links() }}</div> @endif
+    <x-core::ui.pagination :paginator="$alerts" />
 
     <flux:modal wire:model="showBody" class="max-w-xl">
         @if ($openAlert)

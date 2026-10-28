@@ -2,13 +2,9 @@
 
 use App\Facades\Setting;
 use Livewire\Attributes\Layout;
-use Livewire\WithFileUploads;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\Volt\Component;
 
 new #[Layout('core::layouts.app')] class extends Component {
-    use WithFileUploads;
-
     public string $site_title = '';
 
     public string $site_tagline = '';
@@ -18,10 +14,6 @@ new #[Layout('core::layouts.app')] class extends Component {
     public ?string $logo_path = null;
 
     public ?string $favicon_path = null;
-
-    public $logo = null;
-
-    public $favicon = null;
 
     public function mount(): void
     {
@@ -38,17 +30,9 @@ new #[Layout('core::layouts.app')] class extends Component {
             'site_title' => 'required|string|max:255',
             'site_tagline' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
-            'logo' => 'nullable|image|max:2048',
-            'favicon' => 'nullable|image|max:1024',
+            'logo_path' => 'nullable|string|max:500',
+            'favicon_path' => 'nullable|string|max:500',
         ]);
-
-        if ($this->logo instanceof TemporaryUploadedFile) {
-            $this->logo_path = $this->logo->store('settings', 'public');
-        }
-
-        if ($this->favicon instanceof TemporaryUploadedFile) {
-            $this->favicon_path = $this->favicon->store('settings', 'public');
-        }
 
         Setting::setMany([
             'site_title' => $this->site_title,
@@ -103,20 +87,22 @@ new #[Layout('core::layouts.app')] class extends Component {
             <div class="grid gap-5 px-6 py-6 sm:grid-cols-2">
                 <div>
                     <x-core::forms.filepond
-                        wire:model="logo"
-                        model="logo"
+                        wire:model="logo_path"
+                        model="logo_path"
+                        folder="logos"
                         :label="__('Logo')"
-                        :preview="$logo_path ? asset('storage/'.$logo_path) : null"
+                        :preview="media_url($logo_path)"
                         max-height="6rem"
                     />
                 </div>
                 <div>
                     <x-core::forms.filepond
-                        wire:model="favicon"
-                        model="favicon"
+                        wire:model="favicon_path"
+                        model="favicon_path"
+                        folder="logos"
                         :label="__('Favicon')"
                         :accepted-file-types="['image/png', 'image/x-icon', 'image/svg+xml', 'image/jpeg']"
-                        :preview="$favicon_path ? asset('storage/'.$favicon_path) : null"
+                        :preview="media_url($favicon_path)"
                         shape="square"
                         max-height="4rem"
                     />

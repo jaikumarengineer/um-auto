@@ -15,13 +15,19 @@
     $normalized = collect($options)->map(function ($label, $value) {
         if (is_array($label)) {
             return [
-                'id' => $label['value'] ?? $label['id'] ?? '',
-                'text' => $label['label'] ?? $label['text'] ?? '',
+                'id' => (string) ($label['value'] ?? $label['id'] ?? ''),
+                'text' => (string) ($label['label'] ?? $label['text'] ?? ''),
             ];
         }
 
         return ['id' => (string) $value, 'text' => (string) $label];
     })->values();
+
+    // Select2 needs a blank option for placeholders / empty state on single selects,
+    // otherwise it can show the first item visually without syncing Livewire.
+    if (! $multiple && $placeholder) {
+        $normalized->prepend(['id' => '', 'text' => '']);
+    }
 @endphp
 
 <div class="admin-form-control admin-select2 grid gap-2">
@@ -42,6 +48,7 @@
                 if (! api) return;
                 const $ = api.$;
                 const $el = $(this.$refs.select);
+                const emptyValue = @js($multiple) ? [] : '';
                 const config = {
                     width: '100%',
                     placeholder: @js($placeholder),
@@ -68,20 +75,22 @@
                     };
                 @endif
                 $el.select2(config);
-                const sync = () => {
-                    const val = $el.val();
+
+                const writeWire = (val) => {
                     @if ($name)
-                        $wire.set(@js($name), val ?? (@js($multiple) ? [] : null));
+                        const next = val === null || val === undefined ? emptyValue : val;
+                        $wire.set(@js($name), next);
                     @endif
                 };
-                $el.on('change', sync);
+
+                $el.on('change', () => writeWire($el.val()));
                 this.instance = $el;
+
                 queueMicrotask(() => {
                     @if ($name)
                         const current = $wire.get(@js($name));
-                        if (current !== undefined && current !== null && current !== '') {
-                            $el.val(current).trigger('change.select2');
-                        }
+                        const next = current === undefined || current === null || current === '' ? null : current;
+                        $el.val(next).trigger('change.select2');
                     @endif
                 });
             },

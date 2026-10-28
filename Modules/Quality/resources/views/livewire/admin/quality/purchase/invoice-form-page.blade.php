@@ -198,7 +198,7 @@ new #[Layout('core::layouts.app')] class extends Component {
             <x-core::forms.select2
                 wire:model.live="purchase_order_id"
                 :label="__('Purchase order')"
-                :options="$orders->mapWithKeys(fn ($order) => [$order->id => $order->po_number.' · '.$order->vendor?->name])"
+                :options="$orders->mapWithKeys(fn ($order) => [$order->id => $order->po_number.' · '.($order->vendor?->optionLabel() ?? '—')])"
                 :placeholder="__('Select')"
                 :allow-clear="false"
                 :disabled="$locked || (bool) $invoiceId"

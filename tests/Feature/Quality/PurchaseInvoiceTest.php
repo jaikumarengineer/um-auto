@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Validation\ValidationException;
+use Livewire\Volt\Volt;
 use Modules\Quality\Models\ApprovedVendor;
 use Modules\Quality\Models\IncomingLot;
 use Modules\Quality\Models\IncomingPart;
@@ -78,6 +80,58 @@ it('books several invoices and batches against one purchase order', function () 
         ->and(IncomingLot::query()->pluck('lot_number')->all())->toEqualCanonicalizing(['LOT-A', 'LOT-B', 'LOT-C'])
         ->and($order->status)->toBe('closed')
         ->and($order->balanceQuantity())->toEqual(0.0);
+});
+
+it('paginates purchase invoices and searches by invoice, vendor, and batch', function () {
+    $this->actingAs(User::factory()->create([
+        'user_type' => 'admin',
+        'username' => 'invoice-list',
+    ]));
+
+    [$order, $line] = qualityOrder(12);
+    $workflow = app(QualityWorkflow::class);
+
+    foreach (range(101, 111) as $number) {
+        $workflow->savePurchaseInvoice([
+            'invoice_number' => 'PI-'.$number,
+            'purchase_order_id' => $order->id,
+            'invoice_date' => now()->toDateString(),
+            'remarks' => null,
+        ], [[
+            'purchase_order_line_id' => $line->id,
+            'invoiced_qty' => 1,
+            'lots' => [['lot_number' => 'B-'.$number, 'qty' => 1]],
+        ]]);
+    }
+
+    $page = Volt::test('admin.quality.purchase.invoices-page');
+
+    $page->assertSee('Purchase Invoice')
+        ->assertSee('Batch / lot')
+        ->assertSee('Apex · V-1')
+        ->assertSee('Showing')
+        ->assertSee('of')
+        ->assertSeeInOrder(['B-111', 'PI-111'])
+        ->assertDontSee('B-101');
+
+    $page->call('nextPage')
+        ->assertSee('B-101')
+        ->assertSee('PI-101')
+        ->assertDontSee('B-111');
+
+    $page->set('search', 'PI-103')
+        ->assertSee('B-103')
+        ->assertDontSee('PI-104');
+
+    $page->set('search', 'V-1')
+        ->assertSee('PI-111');
+
+    $page->set('search', 'Apex')
+        ->assertSee('PI-111');
+
+    $page->set('search', 'B-107')
+        ->assertSee('PI-107')
+        ->assertDontSee('PI-108');
 });
 
 function qualityOrder(float $qty): array

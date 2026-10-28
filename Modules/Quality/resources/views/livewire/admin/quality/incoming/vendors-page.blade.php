@@ -1,6 +1,7 @@
 <?php
 
 use App\Concerns\NotifiesWithSweetAlert;
+use App\Concerns\WithSorting;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -10,10 +11,17 @@ use Modules\Quality\Models\ApprovedVendor;
 new #[Layout('core::layouts.app')] class extends Component {
     use NotifiesWithSweetAlert;
     use WithPagination;
+    use WithSorting;
 
     public string $search = '';
 
     public string $statusFilter = '';
+
+    public string $sortBy = 'name';
+
+    public string $sortDirection = 'asc';
+
+    protected array $sortable = ['code', 'name', 'contact_name', 'purchase_orders_count', 'status'];
 
     public bool $showFlyout = false;
 
@@ -45,7 +53,6 @@ new #[Layout('core::layouts.app')] class extends Component {
     public function createVendor(): void
     {
         $this->resetForm();
-        $this->code = ApprovedVendor::nextCode();
         $this->showFlyout = true;
     }
 
@@ -67,10 +74,6 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function saveVendor(): void
     {
-        if (! $this->vendorId && trim($this->code) === '') {
-            $this->code = ApprovedVendor::nextCode();
-        }
-
         $this->code = strtoupper(trim($this->code));
 
         $data = $this->validate([
@@ -117,15 +120,15 @@ new #[Layout('core::layouts.app')] class extends Component {
     public function with(): array
     {
         return [
-            'vendors' => ApprovedVendor::query()
-                ->withCount('purchaseOrders')
-                ->when($this->search !== '', function ($query) {
-                    $term = '%'.$this->search.'%';
-                    $query->where(fn ($query) => $query->where('name', 'like', $term)->orWhere('code', 'like', $term)->orWhere('email', 'like', $term));
-                })
-                ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
-                ->orderBy('name')
-                ->paginate(12),
+            'vendors' => $this->applySorting(
+                ApprovedVendor::query()
+                    ->withCount('purchaseOrders')
+                    ->when($this->search !== '', function ($query) {
+                        $term = '%'.$this->search.'%';
+                        $query->where(fn ($query) => $query->where('name', 'like', $term)->orWhere('code', 'like', $term)->orWhere('email', 'like', $term));
+                    })
+                    ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
+            )->paginate(12),
         ];
     }
 
@@ -169,9 +172,13 @@ new #[Layout('core::layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
             <thead class="bg-[var(--admin-surface-muted)]">
                 <tr>
-                    @foreach (array_filter([__('Code'), __('Vendor'), __('Contact'), auth()->user()?->isMaster() ? __('POs') : null, __('Status')]) as $heading)
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ $heading }}</th>
-                    @endforeach
+                    <x-core::ui.sortable-th column="code" :label="__('Code')" />
+                    <x-core::ui.sortable-th column="name" :label="__('Vendor')" />
+                    <x-core::ui.sortable-th column="contact_name" :label="__('Contact')" />
+                    @if (auth()->user()?->isMaster())
+                        <x-core::ui.sortable-th column="purchase_orders_count" :label="__('POs')" />
+                    @endif
+                    <x-core::ui.sortable-th column="status" :label="__('Status')" />
                     <th class="px-4 py-3"></th>
                 </tr>
             </thead>
@@ -199,13 +206,13 @@ new #[Layout('core::layouts.app')] class extends Component {
             </tbody>
         </table>
     </div>
-    @if ($vendors->hasPages()) <div class="mt-4">{{ $vendors->links() }}</div> @endif
+    <x-core::ui.pagination :paginator="$vendors" />
 
     <flux:modal wire:model="showFlyout" variant="flyout" class="md:min-w-[28rem] !rounded-s-3xl !ps-8 !pe-8">
         <form wire:submit="saveVendor" class="flex h-full flex-col gap-4">
             <flux:heading size="lg">{{ $vendorId ? __('Edit vendor') : __('Add vendor') }}</flux:heading>
             <div class="flex-1 space-y-3 pe-2">
-                <flux:input wire:model="code" :label="__('Code')" readonly required :description="__('Assigned automatically, like V-1001.')" />
+                <flux:input wire:model="code" :label="__('Code')" required :placeholder="__('V-1001')" :description="__('Enter a code like V-1001.')" />
                 @if ($showFlyout)
                     <x-core::forms.select2
                         wire:key="vendor-status-{{ $vendorId ?? 'new' }}"

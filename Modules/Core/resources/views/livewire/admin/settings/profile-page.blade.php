@@ -7,12 +7,9 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
-use Livewire\WithFileUploads;
 use Livewire\Volt\Component;
 
 new #[Layout('core::layouts.app')] class extends Component {
-    use WithFileUploads;
 
     public string $selectedTab = 'profile';
 
@@ -99,16 +96,13 @@ new #[Layout('core::layouts.app')] class extends Component {
         $user = Auth::user();
 
         $this->validate([
-            'avatar' => ['required', 'image', 'max:2048'],
+            'avatar' => ['required', 'string', 'max:500'],
         ]);
 
-        if ($this->avatar instanceof TemporaryUploadedFile) {
-            $path = $this->avatar->store('avatars', 'public');
-            $user->image = 'storage/'.$path;
-            $user->save();
-            $this->image_path = $user->image;
-            $this->avatar = null;
-        }
+        $user->image = $this->avatar;
+        $user->save();
+        $this->image_path = $user->image;
+        $this->avatar = null;
 
         $this->dispatch(
             'SweetMessage',
@@ -165,11 +159,7 @@ new #[Layout('core::layouts.app')] class extends Component {
     $roleLabels = User::allRoleLabels();
     $roleLabel = $roleLabels[$user->user_type ?? ''] ?? ucfirst((string) ($user->user_type ?? 'User'));
 
-    $avatarSrc = $image_path
-        ? (str_starts_with($image_path, 'http') || str_starts_with($image_path, 'data:')
-            ? $image_path
-            : asset($image_path))
-        : $user->avatar_url;
+    $avatarSrc = media_url($image_path) ?? $user->avatar_url;
 
     $displayName = trim($name.' '.$last_name) ?: $user->name;
 @endphp
@@ -337,6 +327,7 @@ new #[Layout('core::layouts.app')] class extends Component {
             <x-core::forms.filepond
                 wire:model="avatar"
                 model="avatar"
+                folder="avatars"
                 :label="__('Avatar Image')"
                 :accepted-file-types="['image/png', 'image/jpeg', 'image/webp']"
             />

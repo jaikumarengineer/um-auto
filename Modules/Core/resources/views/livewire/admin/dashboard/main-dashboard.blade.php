@@ -179,7 +179,7 @@ new #[Layout('core::layouts.app')] class extends Component {
     </section>
 
     {{-- KPI strip --}}
-    <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <div class="admin-card admin-card-hover admin-fade-in admin-fade-in-delay-1 p-5">
             <div class="flex items-start justify-between">
                 <div>
@@ -215,18 +215,6 @@ new #[Layout('core::layouts.app')] class extends Component {
                 </span>
             </div>
             <p class="mt-3 text-xs text-zinc-500">{{ __('Admin · sub-admin · staff') }}</p>
-        </div>
-        <div class="admin-card admin-card-hover admin-fade-in admin-fade-in-delay-4 p-5">
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-sm text-zinc-500">{{ __('Sessions') }}</p>
-                    <p class="mt-1 text-3xl font-semibold tabular-nums">128</p>
-                </div>
-                <span class="flex size-10 items-center justify-center rounded-2xl bg-secondary/15 text-secondary">
-                    <flux:icon.chart-bar variant="outline" class="size-5 stroke-[1.5]" />
-                </span>
-            </div>
-            <p class="mt-3 text-xs text-zinc-500">{{ __('Sample traffic today') }}</p>
         </div>
     </section>
 

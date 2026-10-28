@@ -3,7 +3,9 @@
 namespace Modules\Quality\Providers;
 
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Carbon;
 use Modules\Quality\Console\SendDailyQualityDigest;
+use Modules\Quality\Support\QualityAlertCatalog;
 use Nwidart\Modules\Support\ModuleServiceProvider;
 
 class QualityServiceProvider extends ModuleServiceProvider
@@ -42,6 +44,16 @@ class QualityServiceProvider extends ModuleServiceProvider
      */
     protected function configureSchedules(Schedule $schedule): void
     {
-        $schedule->command('quality:daily-digest')->dailyAt('18:00');
+        $time = '18:00';
+
+        try {
+            $time = QualityAlertCatalog::systemPreferences()['send_time'];
+        } catch (\Throwable) {
+            $time = '18:00';
+        }
+
+        $schedule->command('quality:digest daily')->dailyAt($time);
+        $schedule->command('quality:digest weekly')->weeklyOn(Carbon::SUNDAY, $time);
+        $schedule->command('quality:digest monthly')->lastDayOfMonth($time);
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\WithSorting;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -7,8 +8,15 @@ use Modules\Quality\Models\InspectionStandard;
 
 new #[Layout('core::layouts.app')] class extends Component {
     use WithPagination;
+    use WithSorting;
 
     public string $search = '';
+
+    public string $sortBy = 'code';
+
+    public string $sortDirection = 'asc';
+
+    protected array $sortable = ['code', 'revision', 'effective_from', 'characteristics_count', 'status'];
 
     public function updatingSearch(): void
     {
@@ -18,19 +26,19 @@ new #[Layout('core::layouts.app')] class extends Component {
     public function with(): array
     {
         return [
-            'standards' => InspectionStandard::query()
-                ->with(['part', 'samplingPlan'])
-                ->withCount('characteristics')
-                ->when($this->search !== '', function ($query) {
-                    $term = '%'.$this->search.'%';
-                    $query->where(function ($query) use ($term) {
-                        $query->where('code', 'like', $term)
-                            ->orWhere('title', 'like', $term)
-                            ->orWhereHas('part', fn ($part) => $part->where('part_number', 'like', $term)->orWhere('name', 'like', $term));
-                    });
-                })
-                ->orderBy('code')
-                ->paginate(12),
+            'standards' => $this->applySorting(
+                InspectionStandard::query()
+                    ->with(['part', 'samplingPlan'])
+                    ->withCount('characteristics')
+                    ->when($this->search !== '', function ($query) {
+                        $term = '%'.$this->search.'%';
+                        $query->where(function ($query) use ($term) {
+                            $query->where('code', 'like', $term)
+                                ->orWhere('title', 'like', $term)
+                                ->orWhereHas('part', fn ($part) => $part->where('part_number', 'like', $term)->orWhere('name', 'like', $term));
+                        });
+                    })
+            )->paginate(12),
         ];
     }
 }; ?>
@@ -59,9 +67,12 @@ new #[Layout('core::layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
             <thead class="bg-[var(--admin-surface-muted)]">
                 <tr>
-                    @foreach ([__('Standard'), __('Part'), __('Revision'), __('Effective'), __('Checks'), __('Status')] as $heading)
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ $heading }}</th>
-                    @endforeach
+                    <x-core::ui.sortable-th column="code" :label="__('Standard')" />
+                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Part') }}</th>
+                    <x-core::ui.sortable-th column="revision" :label="__('Revision')" />
+                    <x-core::ui.sortable-th column="effective_from" :label="__('Effective')" />
+                    <x-core::ui.sortable-th column="characteristics_count" :label="__('Checks')" />
+                    <x-core::ui.sortable-th column="status" :label="__('Status')" />
                     <th></th>
                 </tr>
             </thead>
@@ -84,5 +95,5 @@ new #[Layout('core::layouts.app')] class extends Component {
             </tbody>
         </table>
     </div>
-    @if ($standards->hasPages()) <div class="mt-4">{{ $standards->links() }}</div> @endif
+    <x-core::ui.pagination :paginator="$standards" />
 </div>

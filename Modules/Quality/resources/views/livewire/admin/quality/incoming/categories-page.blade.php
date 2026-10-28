@@ -1,6 +1,7 @@
 <?php
 
 use App\Concerns\NotifiesWithSweetAlert;
+use App\Concerns\WithSorting;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -10,8 +11,15 @@ use Modules\Quality\Models\PartCategory;
 new #[Layout('core::layouts.app')] class extends Component {
     use NotifiesWithSweetAlert;
     use WithPagination;
+    use WithSorting;
 
     public string $search = '';
+
+    public string $sortBy = 'name';
+
+    public string $sortDirection = 'asc';
+
+    protected array $sortable = ['name', 'parts_count'];
 
     public bool $showFlyout = false;
 
@@ -69,11 +77,11 @@ new #[Layout('core::layouts.app')] class extends Component {
     public function with(): array
     {
         return [
-            'categories' => PartCategory::query()
-                ->withCount('parts')
-                ->when($this->search !== '', fn ($query) => $query->where('name', 'like', '%'.$this->search.'%'))
-                ->orderBy('name')
-                ->paginate(12),
+            'categories' => $this->applySorting(
+                PartCategory::query()
+                    ->withCount('parts')
+                    ->when($this->search !== '', fn ($query) => $query->where('name', 'like', '%'.$this->search.'%'))
+            )->paginate(12),
         ];
     }
 }; ?>
@@ -100,8 +108,8 @@ new #[Layout('core::layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
             <thead class="bg-[var(--admin-surface-muted)]">
                 <tr>
-                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Category') }}</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Parts') }}</th>
+                    <x-core::ui.sortable-th column="name" :label="__('Category')" />
+                    <x-core::ui.sortable-th column="parts_count" :label="__('Parts')" />
                     <th></th>
                 </tr>
             </thead>
@@ -124,7 +132,7 @@ new #[Layout('core::layouts.app')] class extends Component {
             </tbody>
         </table>
     </div>
-    @if ($categories->hasPages()) <div class="mt-4">{{ $categories->links() }}</div> @endif
+    <x-core::ui.pagination :paginator="$categories" />
 
     <flux:modal wire:model="showFlyout" variant="flyout" class="md:min-w-[28rem] !rounded-s-3xl !ps-8 !pe-8">
         <form wire:submit="saveCategory" class="flex h-full flex-col gap-4">

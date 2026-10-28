@@ -1,6 +1,7 @@
 <?php
 
 use App\Concerns\NotifiesWithSweetAlert;
+use App\Concerns\WithSorting;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -12,10 +13,19 @@ use Modules\Quality\Support\Qty;
 new #[Layout('core::layouts.app')] class extends Component {
     use NotifiesWithSweetAlert;
     use WithPagination;
+    use WithSorting;
 
     public string $search = '';
 
     public string $statusFilter = '';
+
+    public int $perPage = 10;
+
+    public string $sortBy = 'po_date';
+
+    public string $sortDirection = 'desc';
+
+    protected array $sortable = ['po_number', 'po_date', 'expected_date', 'status', 'id'];
 
     public function updatingSearch(): void
     {
@@ -25,6 +35,18 @@ new #[Layout('core::layouts.app')] class extends Component {
     public function updatingStatusFilter(): void
     {
         $this->resetPage();
+    }
+
+    public function updatingPerPage(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPerPage(): void
+    {
+        if (! in_array($this->perPage, [10, 25, 50], true)) {
+            $this->perPage = 10;
+        }
     }
 
     public function deleteOrder(int $id): void
@@ -39,19 +61,18 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function with(): array
     {
-        $orders = PurchaseOrder::query()
-            ->with(['vendor', 'lines.invoiceLines'])
-            ->when($this->search !== '', function ($query) {
-                $term = '%'.$this->search.'%';
-                $query->where(function ($query) use ($term) {
-                    $query->where('po_number', 'like', $term)
-                        ->orWhereHas('vendor', fn ($vendor) => $vendor->where('name', 'like', $term)->orWhere('code', 'like', $term));
-                });
-            })
-            ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
-            ->latest('po_date')
-            ->latest('id')
-            ->paginate(10);
+        $orders = $this->applySorting(
+            PurchaseOrder::query()
+                ->with(['vendor', 'lines.invoiceLines'])
+                ->when($this->search !== '', function ($query) {
+                    $term = '%'.$this->search.'%';
+                    $query->where(function ($query) use ($term) {
+                        $query->where('po_number', 'like', $term)
+                            ->orWhereHas('vendor', fn ($vendor) => $vendor->where('name', 'like', $term)->orWhere('code', 'like', $term));
+                    });
+                })
+                ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
+        )->orderByDesc('id')->paginate($this->perPage);
 
         return [
             'orders' => $orders,
@@ -86,13 +107,18 @@ new #[Layout('core::layouts.app')] class extends Component {
     <div class="mb-4 admin-card p-3">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
             <div class="min-w-0 flex-1">
-                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('Search PO number or vendor')" />
+                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('Search PO number, vendor name, or vendor code')" />
             </div>
             <flux:select wire:model.live="statusFilter" class="w-full lg:w-44">
                 <flux:select.option value="">{{ __('All statuses') }}</flux:select.option>
                 @foreach (['draft', 'open', 'partial', 'closed', 'cancelled'] as $status)
                     <flux:select.option :value="$status">{{ str($status)->title() }}</flux:select.option>
                 @endforeach
+            </flux:select>
+            <flux:select wire:model.live="perPage" class="w-full lg:w-32">
+                <flux:select.option value="10">10 / page</flux:select.option>
+                <flux:select.option value="25">25 / page</flux:select.option>
+                <flux:select.option value="50">50 / page</flux:select.option>
             </flux:select>
         </div>
     </div>
@@ -101,9 +127,14 @@ new #[Layout('core::layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
             <thead class="bg-[var(--admin-surface-muted)]">
                 <tr>
-                    @foreach ([__('PO'), __('Vendor'), __('Date'), __('Expected'), __('Ordered'), __('Invoiced'), __('Balance'), __('Status')] as $heading)
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ $heading }}</th>
-                    @endforeach
+                    <x-core::ui.sortable-th column="po_number" :label="__('PO')" />
+                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Vendor') }}</th>
+                    <x-core::ui.sortable-th column="po_date" :label="__('Date')" />
+                    <x-core::ui.sortable-th column="expected_date" :label="__('Expected')" />
+                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Ordered') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Invoiced') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Balance') }}</th>
+                    <x-core::ui.sortable-th column="status" :label="__('Status')" />
                     <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Actions') }}</th>
                 </tr>
             </thead>
@@ -111,7 +142,7 @@ new #[Layout('core::layouts.app')] class extends Component {
                 @forelse ($orders as $order)
                     <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/40" wire:key="po-{{ $order->id }}">
                         <td class="px-4 py-3 text-sm font-medium">{{ $order->po_number }}</td>
-                        <td class="px-4 py-3 text-sm">{{ $order->vendor?->name }}</td>
+                        <td class="px-4 py-3 text-sm">{{ $order->vendor?->optionLabel() ?? '—' }}</td>
                         <td class="px-4 py-3 text-sm">{{ $order->po_date?->format('d M Y') }}</td>
                         <td class="px-4 py-3 text-sm {{ $order->isOverdue() ? 'text-red-600' : '' }}">{{ $order->expected_date?->format('d M Y') ?: '—' }}</td>
                         <td class="px-4 py-3 text-sm tabular-nums">{{ Qty::format($order->orderedQuantity()) }}</td>
@@ -145,7 +176,5 @@ new #[Layout('core::layouts.app')] class extends Component {
         </table>
     </div>
 
-    @if ($orders->hasPages())
-        <div class="mt-4">{{ $orders->links() }}</div>
-    @endif
+    <x-core::ui.pagination :paginator="$orders" />
 </div>

@@ -1,13 +1,16 @@
 <?php
 
-use Livewire\Volt\Component;
+use App\Concerns\NotifiesWithSweetAlert;
+use App\Concerns\WithSorting;
 use App\Models\User;
 use Livewire\Attributes\Layout;
+use Livewire\Volt\Component;
 use Livewire\WithPagination;
-use App\Concerns\NotifiesWithSweetAlert;
 
 new #[Layout('core::layouts.app')] class extends Component {
-    use WithPagination, NotifiesWithSweetAlert;
+    use NotifiesWithSweetAlert;
+    use WithPagination;
+    use WithSorting;
 
     public string $search = '';
     public string $roleFilter = '';
@@ -38,19 +41,8 @@ new #[Layout('core::layouts.app')] class extends Component {
         $this->resetPage();
     }
 
-    public function sort(string $column): void
+    public function updatingPerPage(): void
     {
-        if (! in_array($column, $this->sortable, true)) {
-            return;
-        }
-
-        if ($this->sortBy === $column) {
-            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
-        } else {
-            $this->sortBy = $column;
-            $this->sortDirection = 'asc';
-        }
-
         $this->resetPage();
     }
 
@@ -88,21 +80,18 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function with(): array
     {
-        $sortBy = in_array($this->sortBy, $this->sortable, true) ? $this->sortBy : 'id';
-        $sortDirection = $this->sortDirection === 'asc' ? 'asc' : 'desc';
-
-        $users = User::query()
-            ->when($this->search, fn ($q) =>
-                $q->where(fn ($q) =>
-                    $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('email', 'like', '%' . $this->search . '%')
-                      ->orWhere('username', 'like', '%' . $this->search . '%')
+        $users = $this->applySorting(
+            User::query()
+                ->when($this->search, fn ($q) =>
+                    $q->where(fn ($q) =>
+                        $q->where('name', 'like', '%' . $this->search . '%')
+                          ->orWhere('email', 'like', '%' . $this->search . '%')
+                          ->orWhere('username', 'like', '%' . $this->search . '%')
+                    )
                 )
-            )
-            ->when($this->roleFilter, fn ($q) => $q->where('user_type', $this->roleFilter))
-            ->when($this->statusFilter !== '', fn ($q) => $q->where('is_active', (bool) $this->statusFilter))
-            ->orderBy($sortBy, $sortDirection)
-            ->paginate($this->perPage);
+                ->when($this->roleFilter, fn ($q) => $q->where('user_type', $this->roleFilter))
+                ->when($this->statusFilter !== '', fn ($q) => $q->where('is_active', (bool) $this->statusFilter))
+        )->paginate($this->perPage);
 
         return compact('users');
     }
@@ -172,35 +161,12 @@ new #[Layout('core::layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
             <thead class="bg-[var(--admin-surface-muted)]">
                 <tr>
-                    @php
-                        $headers = [
-                            'id' => ['label' => '#', 'align' => 'left'],
-                            'name' => ['label' => __('Name'), 'align' => 'left'],
-                            'username' => ['label' => __('Username'), 'align' => 'left'],
-                            'email' => ['label' => __('Email'), 'align' => 'left'],
-                            'user_type' => ['label' => __('Role'), 'align' => 'left'],
-                            'is_active' => ['label' => __('Status'), 'align' => 'center'],
-                        ];
-                    @endphp
-                    @foreach ($headers as $column => $meta)
-                        <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 {{ $meta['align'] === 'center' ? 'text-center' : 'text-left' }}">
-                            <button
-                                type="button"
-                                wire:click="sort('{{ $column }}')"
-                                class="inline-flex items-center gap-1 transition-colors hover:text-primary {{ $meta['align'] === 'center' ? 'justify-center' : '' }}"
-                            >
-                                <span>{{ $meta['label'] }}</span>
-                                @if ($sortBy === $column)
-                                    <flux:icon
-                                        :name="$sortDirection === 'asc' ? 'chevron-up' : 'chevron-down'"
-                                        class="size-3.5 text-primary"
-                                    />
-                                @else
-                                    <flux:icon.chevron-up-down class="size-3.5 opacity-40" />
-                                @endif
-                            </button>
-                        </th>
-                    @endforeach
+                    <x-core::ui.sortable-th column="id" label="#" />
+                    <x-core::ui.sortable-th column="name" :label="__('Name')" />
+                    <x-core::ui.sortable-th column="username" :label="__('Username')" />
+                    <x-core::ui.sortable-th column="email" :label="__('Email')" />
+                    <x-core::ui.sortable-th column="user_type" :label="__('Role')" />
+                    <x-core::ui.sortable-th column="is_active" :label="__('Status')" align="center" />
                     <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Actions') }}</th>
                 </tr>
             </thead>
@@ -310,10 +276,5 @@ new #[Layout('core::layouts.app')] class extends Component {
         </table>
     </div>
 
-    {{-- Pagination --}}
-    @if ($users->hasPages())
-        <div class="mt-4">
-            {{ $users->links() }}
-        </div>
-    @endif
+    <x-core::ui.pagination :paginator="$users" />
 </div>

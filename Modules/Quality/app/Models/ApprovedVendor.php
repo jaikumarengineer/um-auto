@@ -44,15 +44,8 @@ class ApprovedVendor extends Model
         return $this->status === 'approved';
     }
 
-    public static function nextCode(): string
+    public function optionLabel(): string
     {
-        $highest = static::query()
-            ->pluck('code')
-            ->map(function ($code): int {
-                return preg_match('/^V-(\d+)$/', (string) $code, $matches) ? (int) $matches[1] : 0;
-            })
-            ->max() ?? 0;
-
-        return sprintf('V-%04d', max($highest, 1000) + 1);
+        return $this->name.' · '.$this->code;
     }
 }
