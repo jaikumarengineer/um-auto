@@ -57,7 +57,7 @@ new #[Layout('core::layouts.app')] class extends Component {
         return [
             'invoices' => $this->applySorting(
                 PurchaseInvoice::query()
-                    ->with(['vendor', 'purchaseOrder', 'lines.lots'])
+                    ->with(['vendor', 'purchaseOrder', 'lines.lots', 'creator'])
                     ->when($this->search !== '', function ($query) {
                         $term = '%'.$this->search.'%';
                         $query->where(function ($query) use ($term) {
@@ -75,7 +75,7 @@ new #[Layout('core::layouts.app')] class extends Component {
 <div>
     <x-core::ui.page-header
         :title="__('Purchase invoices')"
-        :subtitle="__('Several invoices can sit on one purchase order. Each line can carry many batches.')"
+        :subtitle="__('Showing the list of purchase invoices')"
         :breadcrumbs="[
             admin_breadcrumb_home(),
             ['label' => __('Purchase invoices')],
@@ -105,14 +105,17 @@ new #[Layout('core::layouts.app')] class extends Component {
         <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
             <thead class="bg-[var(--admin-surface-muted)]">
                 <tr>
-                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Batch / lot') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Batch / lot') }}</th>
                     <x-core::ui.sortable-th column="invoice_number" :label="__('Purchase Invoice')" />
-                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Purchase order') }}</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Vendor') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Purchase order') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Vendor') }}</th>
                     <x-core::ui.sortable-th column="invoice_date" :label="__('Date')" />
-                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Qty') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Qty') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Remarks') }}</th>
                     <x-core::ui.sortable-th column="status" :label="__('Status')" />
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Actions') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Approval') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Created by') }}</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-zinc-500">{{ __('Actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -137,9 +140,15 @@ new #[Layout('core::layouts.app')] class extends Component {
                         <td class="px-4 py-3 text-sm">{{ $invoice->vendor?->optionLabel() ?? '—' }}</td>
                         <td class="px-4 py-3 text-sm">{{ $invoice->invoice_date?->format('d M Y') }}</td>
                         <td class="px-4 py-3 text-sm tabular-nums">{{ Qty::format($invoice->invoicedQuantity()) }}</td>
+                        <x-core::ui.long-text-cell :value="$invoice->remarks" />
                         <td class="px-4 py-3"><x-quality::status-pill :status="$invoice->status" /></td>
+                        <td class="px-4 py-3"><x-quality::status-pill :status="$invoice->approval_status ?? 'approved'" /></td>
+                        <td class="px-4 py-3 text-sm">{{ $invoice->creator?->full_name ?: '—' }}</td>
                         <td class="px-4 py-3 text-right">
                             <x-core::ui.actions-menu>
+                                <flux:menu.item icon="eye" icon:variant="outline" :href="route('admin::quality.purchase.invoices.show', $invoice)" wire:navigate>
+                                    {{ __('View') }}
+                                </flux:menu.item>
                                 <flux:menu.item icon="document-text" icon:variant="outline" :href="route('admin::quality.purchase.invoices.format', $invoice)">
                                     {{ __('Format') }}
                                 </flux:menu.item>
@@ -153,7 +162,7 @@ new #[Layout('core::layouts.app')] class extends Component {
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="px-4 py-12 text-center text-sm text-zinc-500">{{ __('No purchase invoices yet.') }}</td>
+                        <td colspan="11" class="px-4 py-12 text-center text-sm text-zinc-500">{{ __('No purchase invoices yet.') }}</td>
                     </tr>
                 @endforelse
             </tbody>

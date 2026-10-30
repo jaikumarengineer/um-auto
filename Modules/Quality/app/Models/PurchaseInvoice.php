@@ -2,6 +2,7 @@
 
 namespace Modules\Quality\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -17,18 +18,34 @@ class PurchaseInvoice extends Model
         'invoice_date',
         'status',
         'remarks',
+        'created_by',
+        'approval_status',
+        'approved_by',
+        'approved_at',
+        'rejection_reason',
     ];
 
     protected function casts(): array
     {
         return [
             'invoice_date' => 'date',
+            'approved_at' => 'datetime',
         ];
     }
 
     public function purchaseOrder(): BelongsTo
     {
         return $this->belongsTo(PurchaseOrder::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function vendor(): BelongsTo

@@ -5,10 +5,10 @@ use Livewire\Volt\Volt;
 use Modules\Quality\Models\ApprovedVendor;
 use Modules\Quality\Models\PurchaseOrder;
 
-it('leaves the vendor code blank until it is entered, and rejects a bad or duplicate code', function () {
+it('leaves the vendor code blank until it is entered, accepts any unique code, and rejects duplicates', function () {
     $this->actingAs(User::factory()->create([
-        'user_type' => 'incoming',
-        'username' => 'incoming-vendor-codes',
+        'user_type' => 'manager',
+        'username' => 'manager-vendor-codes',
     ]));
 
     ApprovedVendor::query()->create([
@@ -28,19 +28,21 @@ it('leaves the vendor code blank until it is entered, and rejects a bad or dupli
 
     Volt::test('admin.quality.incoming.vendors-page')
         ->call('createVendor')
-        ->set('code', 'v-1311')
+        ->set('code', 'ads22')
         ->set('name', 'River Metals')
         ->call('saveVendor')
         ->assertHasNoErrors();
 
-    expect(ApprovedVendor::query()->where('name', 'River Metals')->value('code'))->toBe('V-1311');
+    expect(ApprovedVendor::query()->where('name', 'River Metals')->value('code'))->toBe('ADS22');
 
     Volt::test('admin.quality.incoming.vendors-page')
         ->call('createVendor')
-        ->set('code', 'not-a-code')
-        ->set('name', 'Bad Code Metals')
+        ->set('code', '100')
+        ->set('name', 'Numeric Code Metals')
         ->call('saveVendor')
-        ->assertHasErrors(['code' => 'regex']);
+        ->assertHasNoErrors();
+
+    expect(ApprovedVendor::query()->where('name', 'Numeric Code Metals')->value('code'))->toBe('100');
 
     Volt::test('admin.quality.incoming.vendors-page')
         ->call('createVendor')
@@ -101,6 +103,6 @@ it('shows the vendor code after the name and finds a purchase order by that code
     Volt::test('admin.quality.incoming.vendors-page')
         ->call('createVendor')
         ->assertSet('code', '')
-        ->assertSee('Enter a code like V-1001.')
+        ->assertSee('Any unique code.')
         ->assertDontSee('Assigned automatically');
 });

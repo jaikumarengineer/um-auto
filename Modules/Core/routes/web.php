@@ -63,7 +63,27 @@ Route::group([
 
             });
 
-            // Settings
+            // UI components demo
+            Route::group([
+                'prefix' => 'components',
+                'as' => 'components.',
+            ], function () {
+                Route::livewire('forms', 'admin.components.forms-demo-page')->name('forms');
+            });
+
+            // Documentation
+            Route::group([
+                'prefix' => 'documentation',
+                'as' => 'documentation.',
+            ], function () {
+
+                Route::livewire('help', 'admin.documentation.help-page')->name('help');
+                Route::livewire('changelog', 'admin.documentation.document-page')->name('changelog');
+            });
+        });
+
+        // Settings and config — Admin only
+        Route::middleware(['admin.only'])->group(function () {
             Route::group([
                 'prefix' => 'settings',
                 'as' => 'settings.',
@@ -83,24 +103,6 @@ Route::group([
                     Route::livewire('third-party', 'admin.settings.scripts.third-party-script-page')->name('third-party');
                     Route::livewire('custom', 'admin.settings.scripts.custom-script-page')->name('custom');
                 });
-            });
-
-            // UI components demo
-            Route::group([
-                'prefix' => 'components',
-                'as' => 'components.',
-            ], function () {
-                Route::livewire('forms', 'admin.components.forms-demo-page')->name('forms');
-            });
-
-            // Documentation
-            Route::group([
-                'prefix' => 'documentation',
-                'as' => 'documentation.',
-            ], function () {
-
-                Route::livewire('help', 'admin.documentation.help-page')->name('help');
-                Route::livewire('changelog', 'admin.documentation.document-page')->name('changelog');
             });
         });
     });

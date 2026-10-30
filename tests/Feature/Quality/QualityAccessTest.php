@@ -76,10 +76,9 @@ it('keeps each department inside its own screens', function () {
     $this->get(route('admin::quality.incoming.parts.standard', $part))->assertForbidden();
 
     $this->actingAs($incoming);
-    $this->get(route('admin::quality.incoming.vendors'))
-        ->assertOk()
-        ->assertDontSee('POs');
-    $this->get(route('admin::quality.incoming.categories'))->assertOk();
+    $this->get(route('admin::quality.incoming.vendors'))->assertForbidden();
+    $this->get(route('admin::quality.incoming.categories'))->assertForbidden();
+    $this->get(route('admin::quality.incoming.parts'))->assertOk();
     $this->get(route('admin::quality.incoming.parts.standard', $part))
         ->assertOk()
         ->assertSee('Inspection Standard - Parts');
@@ -157,7 +156,21 @@ it('keeps each department inside its own screens', function () {
     $this->actingAs($staff);
     $this->get(route('admin::dashboard'))
         ->assertOk()
-        ->assertSeeInOrder(['Quality demo', 'Management', 'Server & Settings', 'List of Category']);
+        ->assertSee('Management')
+        ->assertSee('SPQol MES')
+        ->assertDontSee('Server & Settings');
+    $this->get(route('admin::settings.general'))->assertForbidden();
+    $this->get(route('admin::quality.incoming.vendors'))->assertOk();
+
+    $manager = User::factory()->create([
+        'user_type' => 'manager',
+        'username' => 'manager-demo',
+    ]);
+    $this->actingAs($manager);
+    $this->get(route('admin::dashboard'))->assertOk();
+    $this->get(route('admin::quality.incoming.vendors'))->assertOk();
+    $this->get(route('admin::quality.incoming.categories'))->assertOk();
+    $this->get(route('admin::settings.general'))->assertForbidden();
 
     Volt::test('admin.auth.login')
         ->set('username', $purchase->username)
@@ -169,5 +182,5 @@ it('keeps each department inside its own screens', function () {
         ->set('username', $incoming->username)
         ->set('password', 'password')
         ->call('login')
-        ->assertRedirect(route('admin::quality.incoming.vendors', absolute: false));
+        ->assertRedirect(route('admin::quality.incoming.parts', absolute: false));
 });

@@ -25,12 +25,33 @@ class Navigation extends Component
     protected function getNavigationItems(): array
     {
         $user = auth()->user();
-        $master = $user?->isMaster() ?? false;
-        $purchase = $master || ($user?->isPurchase() ?? false);
-        $incoming = $master || ($user?->isIncoming() ?? false);
+        $admin = $user?->isUnrestrictedAdmin() ?? false;
         $items = [];
 
-        if ($master) {
+        $canDashboard = $admin || ($user?->canModule('dashboard') ?? false) || ($user?->isManagerLike() ?? false);
+        $canPurchase = $admin
+            || ($user?->isPurchase() ?? false)
+            || ($user?->canAnyModule(['quality.purchase.orders', 'quality.purchase.invoices']) ?? false)
+            || ($user?->isManagerLike() ?? false);
+        $canIncomingOps = $admin
+            || ($user?->isIncoming() ?? false)
+            || ($user?->canAnyModule([
+                'quality.incoming.parts',
+                'quality.incoming.standards',
+                'quality.incoming.sampling',
+                'quality.incoming.reports',
+            ]) ?? false)
+            || ($user?->isManagerLike() ?? false);
+        $canVendors = $admin || ($user?->canModule('quality.incoming.vendors') ?? false);
+        $canCategories = $admin || ($user?->canModule('quality.incoming.categories') ?? false);
+        $canAnalysis = $admin
+            || $canPurchase
+            || $canIncomingOps
+            || ($user?->canModule('quality.analysis') ?? false);
+        $canUsers = $admin || ($user?->canModule('users') ?? false) || ($user?->isManagerLike() ?? false);
+        $canGrouping = $admin || ($user?->canModule('grouping') ?? false) || ($user?->isManagerLike() ?? false);
+
+        if ($canDashboard) {
             $items = array_merge($items, [
                 [
                     'type' => 'heading',
@@ -45,19 +66,22 @@ class Navigation extends Component
             ]);
         }
 
-        if ($purchase || $incoming) {
+        if ($canAnalysis || $canPurchase || $canIncomingOps || $canVendors || $canCategories) {
             $items[] = [
                 'type' => 'heading',
-                'label' => __('Quality demo'),
-            ];
-            $items[] = [
-                'label' => __('Analysis'),
-                'route' => 'admin::quality.analysis',
-                'icon' => 'chart-bar',
-                'active' => request()->routeIs('admin::quality.analysis'),
+                'label' => __('SPQol MES'),
             ];
 
-            if ($purchase) {
+            if ($canAnalysis) {
+                $items[] = [
+                    'label' => __('Analysis'),
+                    'route' => 'admin::quality.analysis',
+                    'icon' => 'chart-bar',
+                    'active' => request()->routeIs('admin::quality.analysis'),
+                ];
+            }
+
+            if ($canPurchase) {
                 $items[] = [
                     'type' => 'group',
                     'heading' => __('Purchase'),
@@ -81,69 +105,78 @@ class Navigation extends Component
                 ];
             }
 
-            if ($incoming) {
+            if ($canIncomingOps || $canVendors || $canCategories) {
+                $incomingChildren = [];
+
+                if ($canVendors) {
+                    $incomingChildren[] = [
+                        'label' => __('Approved Vendors'),
+                        'route' => 'admin::quality.incoming.vendors',
+                        'icon' => 'building-storefront',
+                        'active' => request()->routeIs('admin::quality.incoming.vendors'),
+                    ];
+                }
+
+                if ($canCategories) {
+                    $incomingChildren[] = [
+                        'label' => __('List of Category'),
+                        'route' => 'admin::quality.incoming.categories',
+                        'icon' => 'tag',
+                        'active' => request()->routeIs('admin::quality.incoming.categories'),
+                    ];
+                }
+
+                if ($canIncomingOps) {
+                    $incomingChildren = array_merge($incomingChildren, [
+                        [
+                            'label' => __('Incoming Quality parts'),
+                            'route' => 'admin::quality.incoming.parts',
+                            'icon' => 'cube',
+                            'active' => request()->routeIs('admin::quality.incoming.parts*'),
+                        ],
+                        [
+                            'label' => __('Sampling Plan Standards'),
+                            'route' => 'admin::quality.incoming.sampling',
+                            'icon' => 'queue-list',
+                            'active' => request()->routeIs('admin::quality.incoming.sampling'),
+                        ],
+                        [
+                            'label' => __('Incoming Quality Reports'),
+                            'route' => 'admin::quality.incoming.reports',
+                            'icon' => 'document-magnifying-glass',
+                            'active' => request()->routeIs('admin::quality.incoming.reports*'),
+                        ],
+                    ]);
+                }
+
                 $items[] = [
                     'type' => 'group',
                     'heading' => __('Incoming'),
                     'icon' => 'inbox-arrow-down',
                     'expandable' => true,
                     'expanded' => request()->routeIs('admin::quality.incoming.*'),
-                    'children' => [
-                        [
-                            'label' => __('Approved vendors'),
-                            'route' => 'admin::quality.incoming.vendors',
-                            'icon' => 'building-storefront',
-                            'active' => request()->routeIs('admin::quality.incoming.vendors'),
-                        ],
-                        [
-                            'label' => __('Parts'),
-                            'route' => 'admin::quality.incoming.parts',
-                            'icon' => 'cube',
-                            'active' => request()->routeIs('admin::quality.incoming.parts'),
-                        ],
-                        [
-                            'label' => __('Categories'),
-                            'route' => 'admin::quality.incoming.categories',
-                            'icon' => 'tag',
-                            'active' => request()->routeIs('admin::quality.incoming.categories'),
-                        ],
-                        [
-                            'label' => __('Inspection standards'),
-                            'route' => 'admin::quality.incoming.standards',
-                            'icon' => 'clipboard-document-check',
-                            'active' => request()->routeIs('admin::quality.incoming.standards*'),
-                        ],
-                        [
-                            'label' => __('Inspection reports'),
-                            'route' => 'admin::quality.incoming.reports',
-                            'icon' => 'document-magnifying-glass',
-                            'active' => request()->routeIs('admin::quality.incoming.reports*'),
-                        ],
-                        [
-                            'label' => __('Sampling plans'),
-                            'route' => 'admin::quality.incoming.sampling',
-                            'icon' => 'queue-list',
-                            'active' => request()->routeIs('admin::quality.incoming.sampling'),
-                        ],
-                    ],
+                    'children' => $incomingChildren,
                 ];
             }
 
-            $items[] = [
-                'label' => __('Alerts'),
-                'route' => 'admin::quality.alerts',
-                'icon' => 'bell-alert',
-                'active' => request()->routeIs('admin::quality.alerts'),
-            ];
+            if ($canAnalysis) {
+                $items[] = [
+                    'label' => __('Alerts'),
+                    'route' => 'admin::quality.alerts',
+                    'icon' => 'bell-alert',
+                    'active' => request()->routeIs('admin::quality.alerts'),
+                ];
+            }
         }
 
-        if ($master) {
-            $items = array_merge($items, [
-                [
-                    'type' => 'heading',
-                    'label' => __('Management'),
-                ],
-                [
+        if ($canUsers || $canGrouping || $admin) {
+            $items[] = [
+                'type' => 'heading',
+                'label' => __('Management'),
+            ];
+
+            if ($canGrouping) {
+                $items[] = [
                     'type' => 'group',
                     'heading' => __('Grouping'),
                     'icon' => 'globe-alt',
@@ -157,13 +190,21 @@ class Navigation extends Component
                             'active' => request()->routeIs('admin::grouping.list'),
                         ],
                     ],
-                ],
-                [
+                ];
+            }
+
+            if ($canUsers) {
+                $items[] = [
                     'label' => __('Users'),
                     'route' => 'admin::users.list',
                     'icon' => 'users',
                     'active' => request()->routeIs('admin::users.*'),
-                ],
+                ];
+            }
+        }
+
+        if ($admin) {
+            $items = array_merge($items, [
                 [
                     'type' => 'heading',
                     'label' => __('Server & Settings'),
@@ -181,18 +222,18 @@ class Navigation extends Component
                             'icon' => 'adjustments-horizontal',
                             'active' => request()->routeIs('admin::settings.general'),
                         ],
-                        [
-                            'label' => __('Website'),
-                            'route' => 'admin::settings.website',
-                            'icon' => 'globe-alt',
-                            'active' => request()->routeIs('admin::settings.website'),
-                        ],
-                        [
-                            'label' => __('Mail'),
-                            'route' => 'admin::settings.mail',
-                            'icon' => 'envelope',
-                            'active' => request()->routeIs('admin::settings.mail'),
-                        ],
+                        // [
+                        //     'label' => __('Website'),
+                        //     'route' => 'admin::settings.website',
+                        //     'icon' => 'globe-alt',
+                        //     'active' => request()->routeIs('admin::settings.website'),
+                        // ],
+                        // [
+                        //     'label' => __('Mail'),
+                        //     'route' => 'admin::settings.mail',
+                        //     'icon' => 'envelope',
+                        //     'active' => request()->routeIs('admin::settings.mail'),
+                        // ],
                         [
                             'label' => __('Email alerts'),
                             'route' => 'admin::settings.email-alerts',
@@ -205,33 +246,33 @@ class Navigation extends Component
                             'icon' => 'document-magnifying-glass',
                             'active' => request()->routeIs('admin::settings.logs'),
                         ],
-                        [
-                            'label' => __('Server Info'),
-                            'route' => 'admin::settings.server-info',
-                            'icon' => 'server-stack',
-                            'active' => request()->routeIs('admin::settings.server-info'),
-                        ],
-                        [
-                            'type' => 'group',
-                            'heading' => __('Scripts'),
-                            'icon' => 'code-bracket',
-                            'expandable' => true,
-                            'expanded' => request()->routeIs('admin::settings.scripts.*'),
-                            'children' => [
-                                [
-                                    'label' => __('Third-party'),
-                                    'route' => 'admin::settings.scripts.third-party',
-                                    'icon' => 'puzzle-piece',
-                                    'active' => request()->routeIs('admin::settings.scripts.third-party'),
-                                ],
-                                [
-                                    'label' => __('Custom'),
-                                    'route' => 'admin::settings.scripts.custom',
-                                    'icon' => 'command-line',
-                                    'active' => request()->routeIs('admin::settings.scripts.custom'),
-                                ],
-                            ],
-                        ],
+                        // [
+                        //     'label' => __('Server Info'),
+                        //     'route' => 'admin::settings.server-info',
+                        //     'icon' => 'server-stack',
+                        //     'active' => request()->routeIs('admin::settings.server-info'),
+                        // ],
+                        // [
+                        //     'type' => 'group',
+                        //     'heading' => __('Scripts'),
+                        //     'icon' => 'code-bracket',
+                        //     'expandable' => true,
+                        //     'expanded' => request()->routeIs('admin::settings.scripts.*'),
+                        //     'children' => [
+                        //         [
+                        //             'label' => __('Third-party'),
+                        //             'route' => 'admin::settings.scripts.third-party',
+                        //             'icon' => 'puzzle-piece',
+                        //             'active' => request()->routeIs('admin::settings.scripts.third-party'),
+                        //         ],
+                        //         [
+                        //             'label' => __('Custom'),
+                        //             'route' => 'admin::settings.scripts.custom',
+                        //             'icon' => 'command-line',
+                        //             'active' => request()->routeIs('admin::settings.scripts.custom'),
+                        //         ],
+                        //     ],
+                        // ],
                     ],
                 ],
             ]);

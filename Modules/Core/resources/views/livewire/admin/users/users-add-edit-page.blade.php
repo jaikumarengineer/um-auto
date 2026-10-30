@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Support\PermissionCatalog;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -68,6 +69,13 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public bool $summariesAll = true;
 
+    /**
+     * Checked permission names (Spatie permission strings).
+     *
+     * @var list<string>
+     */
+    public array $grantedPermissions = [];
+
     public function mount(?int $user_id = null): void
     {
         $this->hydrateAlertGroup('departments', ['all'], array_keys(QualityAlertCatalog::DEPARTMENTS));
@@ -100,20 +108,30 @@ new #[Layout('core::layouts.app')] class extends Component {
             $this->hydrateAlertGroup('statuses', $prefs['statuses'], array_keys(QualityAlertCatalog::STATUSES));
             $this->hydrateAlertGroup('reports', $prefs['reports'], array_keys(QualityAlertCatalog::REPORTS));
             $this->hydrateAlertGroup('summaries', $prefs['summaries'], array_keys(QualityAlertCatalog::SUMMARIES));
+            $this->loadGrantedPermissionsFromUser($user);
+        } else {
+            $this->resetGrantedPermissionsForRole('manager');
         }
+    }
+
+    public function updatedUserType($value): void
+    {
+        $value = (string) $value;
+
+        if ($value === 'admin') {
+            $this->grantedPermissions = [];
+
+            return;
+        }
+
+        $role = PermissionCatalog::roleForUserType($value) ?? $value;
+        $this->resetGrantedPermissionsForRole($role);
     }
 
     public function updatedName(): void
     {
         if (! $this->isEdit) {
-            $this->username = generateUserName(trim($this->name.' '.$this->last_name));
-        }
-    }
-
-    public function updatedLastName(): void
-    {
-        if (! $this->isEdit) {
-            $this->username = generateUserName(trim($this->name.' '.$this->last_name));
+            $this->username = generateUserName($this->name);
         }
     }
 
@@ -242,7 +260,8 @@ new #[Layout('core::layouts.app')] class extends Component {
         }
 
         if ($this->isEdit) {
-            User::findOrFail($this->userId)->update($payload);
+            $user = User::findOrFail($this->userId);
+            $user->update($payload);
             $message = __('User updated successfully.');
         } else {
             $payload['password'] = $payload['password'] ?? Hash::make($this->password);
@@ -253,6 +272,8 @@ new #[Layout('core::layouts.app')] class extends Component {
             $this->password_confirmation = '';
             $message = __('User created successfully.');
         }
+
+        $this->syncSelectedPermissions($user->fresh());
 
         $this->dispatch(
             'SweetMessage',
@@ -347,6 +368,70 @@ new #[Layout('core::layouts.app')] class extends Component {
             'summaries' => $this->summaryChoices = array_values($choices),
             default => null,
         };
+    }
+
+    private function resetGrantedPermissionsForRole(string $role): void
+    {
+        $this->grantedPermissions = PermissionCatalog::defaultsFor($role);
+    }
+
+    private function loadGrantedPermissionsFromUser(User $user): void
+    {
+        if ($user->isUnrestrictedAdmin()) {
+            $this->grantedPermissions = [];
+
+            return;
+        }
+
+        $granted = [];
+
+        foreach (PermissionCatalog::allPermissionNames() as $name) {
+            [$module, $action] = $this->splitPermissionName($name);
+
+            if ($user->canModule($module, $action)) {
+                $granted[] = $name;
+            }
+        }
+
+        $this->grantedPermissions = $granted;
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function splitPermissionName(string $name): array
+    {
+        $parts = explode('.', $name);
+        $action = array_pop($parts);
+
+        return [implode('.', $parts), $action];
+    }
+
+    private function syncSelectedPermissions(User $user): void
+    {
+        if ($user->isUnrestrictedAdmin()) {
+            $user->syncRoles(['admin']);
+            $user->syncPermissions([]);
+
+            return;
+        }
+
+        $names = array_values(array_intersect(
+            PermissionCatalog::allPermissionNames(),
+            $this->grantedPermissions,
+        ));
+
+        foreach ($names as $name) {
+            \Spatie\Permission\Models\Permission::findOrCreate($name, 'web');
+        }
+
+        $role = PermissionCatalog::roleForUserType((string) $user->user_type);
+        if ($role) {
+            \Spatie\Permission\Models\Role::findOrCreate($role, 'web');
+            $user->syncRoles([$role]);
+        }
+
+        $user->syncPermissions($names);
     }
 }; ?>
 
@@ -466,6 +551,47 @@ new #[Layout('core::layouts.app')] class extends Component {
                 </div>
             </div>
         </div>
+
+        @if ($user_type !== 'admin')
+            <div class="admin-card overflow-hidden">
+                <div class="border-b border-zinc-200 px-6 py-4 dark:border-zinc-700">
+                    <flux:heading size="lg">{{ __('Roles & Permission') }}</flux:heading>
+                    <flux:subheading>
+                        {{ __('Approval by Admin or Manager. Manager starts with full operational scopes; Admin can change the scope. Settings stay Admin-only.') }}
+                    </flux:subheading>
+                </div>
+                <div class="overflow-x-auto px-6 py-4">
+                    <table class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-700">
+                        <thead>
+                            <tr>
+                                <th class="py-2 pr-4 text-left font-semibold text-zinc-500">{{ __('Module') }}</th>
+                                @foreach (['access' => __('Access'), 'view' => __('View'), 'add' => __('Add'), 'edit' => __('Edit'), 'delete' => __('Delete')] as $action => $label)
+                                    <th class="px-2 py-2 text-center font-semibold text-zinc-500">{{ $label }}</th>
+                                @endforeach
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                            @foreach (\App\Support\PermissionCatalog::modules() as $module => $label)
+                                <tr wire:key="perm-{{ $module }}">
+                                    <td class="py-2 pr-4">{{ __($label) }}</td>
+                                    @foreach (\App\Support\PermissionCatalog::actions() as $action)
+                                        @php($permission = \App\Support\PermissionCatalog::name($module, $action))
+                                        <td class="px-2 py-2 text-center">
+                                            <input
+                                                type="checkbox"
+                                                value="{{ $permission }}"
+                                                wire:model="grantedPermissions"
+                                                class="size-4 rounded border-zinc-300 text-[var(--admin-primary)] focus:ring-[var(--admin-primary)]"
+                                            >
+                                        </td>
+                                    @endforeach
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @endif
 
         {{-- Email alerts (admin-managed) --}}
         <div class="admin-card overflow-hidden">

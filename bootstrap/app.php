@@ -2,6 +2,8 @@
 
 use App\Http\Middleware\Auth\AdminAuthCheck;
 use App\Http\Middleware\Auth\AdminAuthRedirect;
+use App\Http\Middleware\Auth\EnsureAdminOnly;
+use App\Http\Middleware\Auth\EnsureModuleAccess;
 use App\Http\Middleware\Auth\EnsureQualityRole;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -27,6 +29,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin.check' => AdminAuthCheck::class,
             'admin.redirect' => AdminAuthRedirect::class,
+            'admin.only' => EnsureAdminOnly::class,
+            'module.access' => EnsureModuleAccess::class,
             'quality.role' => EnsureQualityRole::class,
         ]);
 

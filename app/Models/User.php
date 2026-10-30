@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Support\PermissionCatalog;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -11,14 +12,16 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Laravolt\Avatar\Facade as Avatar;
 use Modules\Quality\Support\QualityAlertCatalog;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, HasRoles, Notifiable, SoftDeletes;
 
     const MASTER_ROLES = [
         'admin' => 'Master admin',
+        'manager' => 'Manager',
         'sub_admin' => 'Sub Admin',
         'staff' => 'Staff',
     ];
@@ -30,6 +33,7 @@ class User extends Authenticatable
 
     const ADMIN_ROLES = [
         'admin' => 'Master admin',
+        'manager' => 'Manager',
         'sub_admin' => 'Sub Admin',
         'staff' => 'Staff',
         'purchase' => 'Purchase department',
@@ -84,7 +88,7 @@ class User extends Authenticatable
     /**
      * Get the attributes that should be cast.
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     protected function casts(): array
     {
@@ -96,6 +100,17 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(function (User $user) {
+            if (! $user->wasRecentlyCreated && ! $user->wasChanged('user_type')) {
+                return;
+            }
+
+            $user->syncRoleDefaults(forcePermissions: true);
+        });
     }
 
     public function uiPreference(string $key, mixed $default = null): mixed
@@ -151,6 +166,7 @@ class User extends Authenticatable
     {
         return [
             'admin' => __('Master admin'),
+            'manager' => __('Manager'),
             'purchase' => __('Purchase department'),
             'incoming' => __('Incoming department'),
         ];
@@ -163,12 +179,39 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->isMaster() || $this->isPurchase() || $this->isIncoming();
+        return $this->isUnrestrictedAdmin()
+            || $this->isManagerLike()
+            || $this->isPurchase()
+            || $this->isIncoming();
     }
 
+    /**
+     * True admin only — settings/config and unrestricted access.
+     */
+    public function isUnrestrictedAdmin(): bool
+    {
+        return $this->user_type === 'admin';
+    }
+
+    public function isManager(): bool
+    {
+        return $this->user_type === 'manager';
+    }
+
+    /**
+     * Manager plus legacy master types that map to manager scopes.
+     */
+    public function isManagerLike(): bool
+    {
+        return in_array($this->user_type, ['manager', 'sub_admin', 'staff'], true);
+    }
+
+    /**
+     * Broad operational access (admin or manager-like). Prefer canModule() for screens.
+     */
     public function isMaster(): bool
     {
-        return in_array($this->user_type, array_keys(self::MASTER_ROLES), true);
+        return $this->isUnrestrictedAdmin() || $this->isManagerLike();
     }
 
     public function isPurchase(): bool
@@ -186,11 +229,83 @@ class User extends Authenticatable
         return in_array($this->user_type, array_keys(self::USER_ROLES), true);
     }
 
+    public function canModule(string $module, string $action = 'access'): bool
+    {
+        if ($this->isUnrestrictedAdmin()) {
+            return true;
+        }
+
+        return $this->can(PermissionCatalog::name($module, $action));
+    }
+
+    public function canAnyModule(array $modules, string $action = 'access'): bool
+    {
+        if ($this->isUnrestrictedAdmin()) {
+            return true;
+        }
+
+        foreach ($modules as $module) {
+            if ($this->canModule($module, $action)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Sync Spatie role (and optionally default direct permissions) from user_type.
+     */
+    public function syncRoleDefaults(bool $forcePermissions = false): void
+    {
+        $role = PermissionCatalog::roleForUserType((string) $this->user_type);
+
+        if ($role === null) {
+            try {
+                $this->syncRoles([]);
+                $this->syncPermissions([]);
+            } catch (\Throwable) {
+                // Permission tables may not exist yet during early migrations.
+            }
+
+            return;
+        }
+
+        if (! class_exists(\Spatie\Permission\Models\Role::class)
+            || ! class_exists(\Spatie\Permission\Models\Permission::class)) {
+            return;
+        }
+
+        try {
+            \Spatie\Permission\Models\Role::findOrCreate($role, 'web');
+
+            if ($forcePermissions && $role !== 'admin') {
+                foreach (PermissionCatalog::defaultsFor($role) as $permission) {
+                    \Spatie\Permission\Models\Permission::findOrCreate($permission, 'web');
+                }
+            }
+
+            $this->syncRoles([$role]);
+
+            if ($role === 'admin') {
+                $this->syncPermissions([]);
+
+                return;
+            }
+
+            if ($forcePermissions) {
+                $this->syncPermissions(PermissionCatalog::defaultsFor($role));
+            }
+        } catch (\Throwable) {
+            // Ignore when permission tables are unavailable.
+        }
+    }
+
     public function adminHomeRoute(): string
     {
         return match (true) {
             $this->isPurchase() => 'admin::quality.purchase.orders',
-            $this->isIncoming() => 'admin::quality.incoming.vendors',
+            $this->isIncoming() => 'admin::quality.incoming.parts',
             default => 'admin::dashboard',
         };
     }
