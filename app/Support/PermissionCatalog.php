@@ -2,6 +2,9 @@
 
 namespace App\Support;
 
+use App\Models\Role;
+use Spatie\Permission\Models\Permission;
+
 class PermissionCatalog
 {
     /**
@@ -30,11 +33,109 @@ class PermissionCatalog
     }
 
     /**
+     * Grouped modules for the permission matrix UI.
+     *
+     * @return array<string, array{label: string, modules: list<string>}>
+     */
+    public static function groups(): array
+    {
+        return [
+            'general' => [
+                'label' => 'General',
+                'modules' => ['dashboard', 'users', 'grouping'],
+            ],
+            'quality' => [
+                'label' => 'Quality Management',
+                'modules' => ['quality.analysis', 'quality.alerts'],
+            ],
+            'procurement' => [
+                'label' => 'Procurement',
+                'modules' => [
+                    'quality.purchase.orders',
+                    'quality.purchase.invoices',
+                    'quality.incoming.vendors',
+                ],
+            ],
+            'inventory' => [
+                'label' => 'Inventory',
+                'modules' => [
+                    'quality.incoming.parts',
+                    'quality.incoming.categories',
+                    'quality.incoming.sampling',
+                    'quality.incoming.standards',
+                ],
+            ],
+            'inspection' => [
+                'label' => 'Inspection',
+                'modules' => [
+                    'quality.incoming.reports',
+                    'quality.approvals',
+                ],
+            ],
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     public static function actions(): array
     {
         return ['access', 'view', 'add', 'edit', 'delete'];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function actionLabels(): array
+    {
+        return [
+            'access' => 'Access',
+            'view' => 'View',
+            'add' => 'Add',
+            'edit' => 'Edit',
+            'delete' => 'Delete',
+        ];
+    }
+
+    /**
+     * Human-readable label for a permission slug (e.g. users.view → View Users).
+     */
+    public static function humanLabel(string $permission): string
+    {
+        $parts = explode('.', $permission);
+        $action = array_pop($parts);
+        $module = implode('.', $parts);
+        $moduleLabel = self::modules()[$module] ?? str($module)->replace('.', ' ')->title()->toString();
+        $actionLabel = match ($action) {
+            'access' => 'Access',
+            'view' => 'View',
+            'add' => 'Create',
+            'edit' => 'Edit',
+            'delete' => 'Delete',
+            default => str($action)->title()->toString(),
+        };
+
+        return $actionLabel.' '.$moduleLabel;
+    }
+
+    /**
+     * Flat permission rows for a module.
+     *
+     * @return list<array{name: string, label: string}>
+     */
+    public static function modulePermissionRows(string $module): array
+    {
+        $rows = [];
+
+        foreach (self::actions() as $action) {
+            $name = self::name($module, $action);
+            $rows[] = [
+                'name' => $name,
+                'label' => self::humanLabel($name),
+            ];
+        }
+
+        return $rows;
     }
 
     /**
@@ -59,7 +160,7 @@ class PermissionCatalog
     }
 
     /**
-     * Default permissions granted when a role is assigned.
+     * Default permissions granted when a role is first seeded.
      *
      * @return list<string>
      */
@@ -85,6 +186,46 @@ class PermissionCatalog
             ]),
             default => [],
         };
+    }
+
+    /**
+     * Current Spatie role permissions (DB), falling back to seeded defaults.
+     *
+     * @return list<string>
+     */
+    public static function permissionsForRole(string $role): array
+    {
+        if ($role === 'admin') {
+            return [];
+        }
+
+        try {
+            $model = Role::findByName($role, 'web');
+            $names = $model->permissions->pluck('name')->all();
+
+            if ($names !== []) {
+                return array_values(array_intersect(self::allPermissionNames(), $names));
+            }
+        } catch (\Throwable) {
+            // Role may not exist yet.
+        }
+
+        return self::defaultsFor($role);
+    }
+
+    /**
+     * Human descriptions used when seeding roles.
+     *
+     * @return array<string, string>
+     */
+    public static function roleDescriptions(): array
+    {
+        return [
+            'admin' => 'Unrestricted master administrator. Settings and full access.',
+            'manager' => 'Operational manager with approval rights across Quality modules.',
+            'purchase' => 'Purchase department access to orders, invoices, and analysis.',
+            'incoming' => 'Incoming department access to parts, standards, sampling, and reports.',
+        ];
     }
 
     /**
@@ -116,5 +257,29 @@ class PermissionCatalog
         }
 
         return $names;
+    }
+
+    /**
+     * View-only permissions (access + view) for every module.
+     *
+     * @return list<string>
+     */
+    public static function viewOnlyPermissionNames(): array
+    {
+        $names = [];
+
+        foreach (array_keys(self::modules()) as $module) {
+            $names[] = self::name($module, 'access');
+            $names[] = self::name($module, 'view');
+        }
+
+        return $names;
+    }
+
+    public static function ensurePermissionsExist(): void
+    {
+        foreach (self::allPermissionNames() as $name) {
+            Permission::findOrCreate($name, 'web');
+        }
     }
 }

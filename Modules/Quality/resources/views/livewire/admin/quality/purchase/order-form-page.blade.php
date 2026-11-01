@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesModule;
 use App\Concerns\NotifiesWithSweetAlert;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -11,7 +12,10 @@ use Modules\Quality\Models\PurchaseOrder;
 use Modules\Quality\Services\QualityWorkflow;
 
 new #[Layout('core::layouts.app')] class extends Component {
+    use AuthorizesModule;
     use NotifiesWithSweetAlert;
+
+    private const MODULE = 'quality.purchase.orders';
 
     public ?int $orderId = null;
 
@@ -37,6 +41,8 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function mount(?int $order = null): void
     {
+        $this->authorizeModule(self::MODULE, $order ? 'edit' : 'add');
+
         $this->po_date = now()->toDateString();
         $this->addLine();
 
@@ -104,9 +110,27 @@ new #[Layout('core::layouts.app')] class extends Component {
         $this->linesPage = max(1, min($page, $maxPage));
     }
 
-    public function updatedLines(mixed $value, string $key): void
+    public function updatedVendorId(): void
     {
-        if (! str_ends_with($key, '.part_id') || $value === '' || $value === null) {
+        $allowed = $this->vendor_id === ''
+            ? collect()
+            : IncomingPart::query()
+                ->where('is_active', true)
+                ->forVendor($this->vendor_id)
+                ->pluck('id')
+                ->map(fn ($id) => (string) $id);
+
+        foreach ($this->lines as $index => $line) {
+            if (($line['part_id'] ?? '') !== '' && ! $allowed->contains((string) $line['part_id'])) {
+                $this->lines[$index]['part_id'] = '';
+                $this->lines[$index]['uom'] = 'PCS';
+            }
+        }
+    }
+
+    public function updatedLines(mixed $value, ?string $key = null): void
+    {
+        if ($key === null || ! str_ends_with($key, '.part_id') || $value === '' || $value === null) {
             return;
         }
 
@@ -128,7 +152,19 @@ new #[Layout('core::layouts.app')] class extends Component {
             'status' => ['required', 'in:draft,open,partial,closed,cancelled'],
             'currency' => ['required', 'string', 'max:8'],
             'lines' => ['required', 'array', 'min:1'],
-            'lines.*.part_id' => ['required', 'exists:incoming_parts,id'],
+            'lines.*.part_id' => [
+                'required',
+                Rule::exists('incoming_parts', 'id')->where(function ($query) {
+                    $query->where(function ($query) {
+                        $query->where('vendor_id', $this->vendor_id)
+                            ->orWhereIn('id', function ($sub) {
+                                $sub->select('incoming_part_id')
+                                    ->from('incoming_part_vendor')
+                                    ->where('approved_vendor_id', $this->vendor_id);
+                            });
+                    });
+                }),
+            ],
             'lines.*.ordered_qty' => ['required', 'numeric', 'gt:0'],
             'lines.*.unit_price' => ['required', 'numeric', 'gte:0'],
             'lines.*.uom' => ['required', 'string', 'max:20'],
@@ -161,9 +197,20 @@ new #[Layout('core::layouts.app')] class extends Component {
         $page = max(1, min($this->linesPage, $maxPage));
         $offset = ($page - 1) * $this->linesPerPage;
 
+        $parts = $this->vendor_id === ''
+            ? collect()
+            : IncomingPart::query()
+                ->where('is_active', true)
+                ->forVendor($this->vendor_id)
+                ->orderBy('part_number')
+                ->get();
+
         return [
-            'vendors' => ApprovedVendor::query()->where('status', 'approved')->orderBy('name')->get(),
-            'parts' => IncomingPart::query()->where('is_active', true)->orderBy('part_number')->get(),
+            'vendors' => ApprovedVendor::query()
+                ->where('status', '!=', 'blocked')
+                ->orderBy('name')
+                ->get(),
+            'parts' => $parts,
             'visibleLines' => array_slice($this->lines, $offset, $this->linesPerPage, true),
             'linesPage' => $page,
             'linesTotal' => $totalLines,
@@ -188,13 +235,17 @@ new #[Layout('core::layouts.app')] class extends Component {
     <form wire:submit="save" class="space-y-4">
         <div class="admin-card grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
             <flux:input wire:model="po_number" :label="__('PO number')" required />
-            <x-core::forms.select2
-                wire:model="vendor_id"
-                :label="__('Approved vendor')"
-                :options="$vendors->mapWithKeys(fn ($vendor) => [$vendor->id => $vendor->optionLabel()])"
-                :placeholder="__('Select')"
-                :allow-clear="false"
-            />
+            <div wire:key="po-vendor-select">
+                <x-core::forms.select2
+                    wire:model.live="vendor_id"
+                    :label="__('Approved vendor')"
+                    :options="$vendors->mapWithKeys(fn ($vendor) => [
+                        $vendor->id => $vendor->optionLabel().($vendor->status === 'approved' ? '' : ' · '.str($vendor->status)->title()),
+                    ])"
+                    :placeholder="__('Select vendor')"
+                    :allow-clear="false"
+                />
+            </div>
             <flux:input wire:model="currency" :label="__('Currency')" />
             <flux:input wire:model="po_date" type="date" :label="__('PO date')" required />
             <flux:input wire:model="expected_date" type="date" :label="__('Expected date')" />
@@ -221,14 +272,15 @@ new #[Layout('core::layouts.app')] class extends Component {
             <div class="space-y-3">
                 @foreach ($visibleLines as $index => $line)
                     <div class="grid gap-3 rounded-2xl border border-zinc-200 p-3 dark:border-zinc-700 md:grid-cols-12" wire:key="line-{{ $line['key'] }}-{{ $index }}">
-                        <div class="md:col-span-5">
+                        <div class="md:col-span-5" wire:key="po-part-wrap-{{ $line['key'] }}-{{ $vendor_id }}-{{ $index }}">
                             <x-core::forms.select2
-                                wire:key="po-part-{{ $line['key'] }}-{{ $index }}"
+                                wire:key="po-part-{{ $line['key'] }}-{{ $vendor_id }}-{{ $index }}"
                                 wire:model.live="lines.{{ $index }}.part_id"
                                 :label="__('Part')"
                                 :options="$parts->mapWithKeys(fn ($part) => [$part->id => $part->part_number.' · '.$part->name])"
-                                :placeholder="__('Select')"
+                                :placeholder="$vendor_id === '' ? __('Select vendor first') : ($parts->isEmpty() ? __('No parts for this vendor') : __('Select'))"
                                 :allow-clear="false"
+                                :disabled="$vendor_id === ''"
                             />
                         </div>
                         <div class="md:col-span-2">
@@ -274,7 +326,7 @@ new #[Layout('core::layouts.app')] class extends Component {
 
         <div class="flex justify-end gap-2">
             <flux:button variant="ghost" :href="route('admin::quality.purchase.orders')" wire:navigate>{{ __('Cancel') }}</flux:button>
-            <flux:button type="submit" variant="primary" wire:loading.attr="disabled">{{ __('Save purchase order') }}</flux:button>
+            <flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="save">{{ __('Save purchase order') }}</flux:button>
         </div>
     </form>
 </div>

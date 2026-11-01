@@ -164,26 +164,31 @@ new #[Layout('core::layouts.app')] class extends Component {
     {
         $audience = $this->audience();
         $dashboard = $analysis->dashboard($this->partId, $this->lotId, $audience);
-        $inspection = in_array($audience, ['master', 'incoming'], true);
-        $commercial = in_array($audience, ['master', 'purchase'], true);
+        $graphView = $audience === 'master' ? $this->graphDepartment : $audience;
 
-        $partRows = $inspection
+        $partRows = $graphView === 'incoming'
             ? $analysis->paginatedPartRows($this->partSearch, $this->perPage, 'partsPage', $audience === 'master', $this->partSortBy, $this->partSortDirection)
             : new LengthAwarePaginator([], 0, $this->perPage, 1, ['pageName' => 'partsPage', 'path' => request()->url()]);
 
-        $balances = $commercial
+        $balances = $graphView === 'purchase'
             ? $analysis->paginatedBalances($this->balanceSearch, $this->sortBy, $this->sortDirection, $this->perPage, 'balancesPage')
             : new LengthAwarePaginator([], 0, $this->perPage, 1, ['pageName' => 'balancesPage', 'path' => request()->url()]);
 
         [$from, $to] = $this->graphRangeDates();
-        $graphView = $audience === 'master' ? $this->graphDepartment : $audience;
 
         return array_merge($dashboard, [
             'audience' => $audience,
+            'graphView' => $graphView,
             'departments' => QualityAlertCatalog::departmentLabels(),
             'part_rows' => $partRows,
             'balances' => $balances,
             'department_graph' => $analysis->departmentGraph($graphView, $this->graphPeriod, $from, $to),
+            'graph_table_url' => route('admin::quality.analysis.table', [
+                'department' => $graphView,
+                'period' => $this->graphPeriod,
+                'from' => $from,
+                'to' => $to,
+            ]),
             'page_title' => $this->analysisTitle($audience),
             'mtd' => $analysis->getMtdStats(),
             'ytd' => $analysis->getYtdStats(),
@@ -229,54 +234,40 @@ new #[Layout('core::layouts.app')] class extends Component {
         </x-slot:actions>
     </x-core::ui.page-header>
 
-    <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        @if (in_array($audience, ['master', 'incoming'], true))
-            <div class="admin-card p-5">
-                <p class="text-sm text-zinc-500">{{ __('Received vs inspected') }}</p>
-                <p class="mt-1 text-2xl font-semibold tabular-nums">{{ Qty::format($received_qty) }} / {{ Qty::format($inspected_qty) }}</p>
-                <p class="mt-1 text-xs text-zinc-500">{{ __(':percent% coverage', ['percent' => $coverage]) }}</p>
-            </div>
-            <div class="admin-card p-5">
-                <p class="text-sm text-zinc-500">{{ __('Rejection') }}</p>
-                <p class="mt-1 text-2xl font-semibold tabular-nums">{{ $rejection }}%</p>
-                <p class="mt-1 text-xs text-zinc-500">{{ __(':qty rejected · :waiting waiting', ['qty' => Qty::format($rejected_qty), 'waiting' => $waiting]) }}</p>
-            </div>
-        @endif
-        @if (in_array($audience, ['master', 'purchase'], true))
-            <div class="admin-card p-5">
-                <p class="text-sm text-zinc-500">{{ __('PO vs PI qty') }}</p>
-                <p class="mt-1 text-2xl font-semibold tabular-nums">{{ Qty::format($ordered_qty) }} / {{ Qty::format($invoiced_qty) }}</p>
-                <p class="mt-1 text-xs text-zinc-500">{{ __('Balance :qty', ['qty' => Qty::format($balance_qty)]) }}</p>
-            </div>
-            <div class="admin-card p-5">
-                <p class="text-sm text-zinc-500">{{ __('Open PO value') }}</p>
-                <p class="mt-1 text-2xl font-semibold tabular-nums">₹{{ Qty::money($open_value) }}</p>
-                <p class="mt-1 text-xs text-zinc-500">{{ __(':count overdue', ['count' => $overdue]) }}</p>
-            </div>
-        @endif
-        @if ($audience === 'master')
-            <div class="admin-card p-5">
-                <p class="text-sm text-zinc-500">{{ __('MTD (PO / Inspection)') }}</p>
-                <p class="mt-1 text-2xl font-semibold tabular-nums">{{ $mtd['po_count'] }} / {{ $mtd['inspection_count'] }}</p>
-            </div>
-            <div class="admin-card p-5">
-                <p class="text-sm text-zinc-500">{{ __('YTD (PO / Inspection)') }}</p>
-                <p class="mt-1 text-2xl font-semibold tabular-nums">{{ $ytd['po_count'] }} / {{ $ytd['inspection_count'] }}</p>
-            </div>
-        @endif
+    @if ($graphView === 'incoming')
+    <section class="grid gap-4 sm:grid-cols-2">
+        <div class="admin-card p-5">
+            <p class="text-sm text-zinc-500">{{ __('MTD (PO / Inspection)') }}</p>
+            <p class="mt-1 text-2xl font-semibold tabular-nums">{{ $mtd['po_count'] }} / {{ $mtd['inspection_count'] }}</p>
+        </div>
+        <div class="admin-card p-5">
+            <p class="text-sm text-zinc-500">{{ __('YTD (PO / Inspection)') }}</p>
+            <p class="mt-1 text-2xl font-semibold tabular-nums">{{ $ytd['po_count'] }} / {{ $ytd['inspection_count'] }}</p>
+        </div>
     </section>
-
-    @php
-        $graphView = $audience === 'master' ? $graphDepartment : $audience;
-    @endphp
+    @endif
 
     <section>
         @if ($department_graph)
         <div class="admin-card p-4">
-            <flux:heading>{{ $department_graph['title'] }}</flux:heading>
-            @if ($department_graph['subtitle'] !== '')
-                <p class="mt-1 text-sm text-zinc-500">{{ $department_graph['subtitle'] }}</p>
-            @endif
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <flux:heading>{{ $department_graph['title'] }}</flux:heading>
+                    @if ($department_graph['subtitle'] !== '')
+                        <p class="mt-1 text-sm text-zinc-500">{{ $department_graph['subtitle'] }}</p>
+                    @endif
+                </div>
+                <a
+                    href="{{ $graph_table_url }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                    title="{{ __('View chart data as table') }}"
+                    aria-label="{{ __('View chart data as table') }}"
+                >
+                    <flux:icon.table-cells variant="outline" class="size-5" />
+                </a>
+            </div>
             <div class="mt-4" wire:key="department-graph-{{ $graphView }}-{{ $graphPeriod }}-{{ $graphDateRange }}">
                 <x-core::charts.chart
                     :type="$department_graph['type']"
@@ -296,7 +287,7 @@ new #[Layout('core::layouts.app')] class extends Component {
         @endif
     </section>
 
-    @if (in_array($audience, ['master', 'incoming'], true))
+    @if ($graphView === 'incoming')
     <section class="admin-card">
         <div class="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -368,7 +359,7 @@ new #[Layout('core::layouts.app')] class extends Component {
     </section>
     @endif
 
-    @if (in_array($audience, ['master', 'purchase'], true))
+    @if ($graphView === 'purchase')
     <section class="admin-card">
         <div class="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -433,13 +424,16 @@ new #[Layout('core::layouts.app')] class extends Component {
     </section>
     @endif
 
-    @if (in_array($audience, ['master', 'incoming'], true))
     <section>
         <div class="admin-card p-4">
             <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <flux:heading>{{ __('History tree') }}</flux:heading>
-                    <p class="text-sm text-zinc-500">{{ $audience === 'incoming' ? __('Part, batch, and inspection report.') : __('Part to purchase order, invoice, batch, and report. Or start from a batch.') }}</p>
+                    <p class="text-sm text-zinc-500">{{ match ($audience) {
+                        'incoming' => __('Part, batch, and inspection report.'),
+                        'purchase' => __('Part to purchase order, invoice, and batch. Or start from a batch.'),
+                        default => __('Part to purchase order, invoice, batch, and report. Or start from a batch.'),
+                    } }}</p>
                 </div>
                 <div class="flex gap-2">
                     <flux:button size="sm" :variant="$traceMode === 'part' ? 'primary' : 'ghost'" wire:click="$set('traceMode', 'part')">{{ __('Part') }}</flux:button>
@@ -471,5 +465,4 @@ new #[Layout('core::layouts.app')] class extends Component {
             @endif
         </div>
     </section>
-    @endif
 </div>

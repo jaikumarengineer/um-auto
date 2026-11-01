@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html
+    lang="{{ str_replace('_', '-', app()->getLocale()) }}"
+    data-auth-user=""
+    data-auth-home="{{ route('admin::main', absolute: false) }}"
+    data-auth-login="{{ route('admin::login', absolute: false) }}"
+>
     <head>
         @include('partials.head')
         <style>
@@ -7,14 +12,17 @@
                 from { opacity: 0; transform: translateY(14px); }
                 to { opacity: 1; transform: translateY(0); }
             }
-            @keyframes admin-auth-kenburns {
-                from { transform: scale(1.05); }
-                to { transform: scale(1.12); }
+            @keyframes admin-auth-float {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-10px); }
             }
 
             .admin-auth-brand {
                 display: none;
-                background: #0b1b4a;
+                background:
+                    radial-gradient(circle at 18% 20%, rgb(255 255 255 / 0.18), transparent 34%),
+                    radial-gradient(circle at 82% 78%, rgb(255 255 255 / 0.12), transparent 28%),
+                    linear-gradient(160deg, #0f766e 0%, #0d9488 42%, #14b8a6 100%);
             }
             @media (min-width: 1024px) {
                 .admin-auth-brand {
@@ -23,15 +31,25 @@
                 }
             }
 
+            .admin-auth-brand-grid {
+                background-image:
+                    linear-gradient(rgb(255 255 255 / 0.08) 1px, transparent 1px),
+                    linear-gradient(90deg, rgb(255 255 255 / 0.08) 1px, transparent 1px);
+                background-size: 42px 42px;
+                mask-image: radial-gradient(circle at center, black 35%, transparent 85%);
+            }
+
             .admin-auth-slide {
                 opacity: 0;
-                transition: opacity 0.85s ease;
+                pointer-events: none;
+                transition: opacity 0.7s ease;
             }
             .admin-auth-slide.is-active {
                 opacity: 1;
+                pointer-events: auto;
             }
-            .admin-auth-slide.is-active img {
-                animation: admin-auth-kenburns 8s ease-out forwards;
+            .admin-auth-slide-card {
+                animation: admin-auth-float 7s ease-in-out infinite;
             }
 
             .admin-auth-enter {
@@ -115,8 +133,7 @@
 
             @media (prefers-reduced-motion: reduce) {
                 .admin-auth-enter,
-                .admin-auth-slide,
-                .admin-auth-slide.is-active img {
+                .admin-auth-slide-card {
                     animation: none;
                     transition: none;
                 }
@@ -134,7 +151,7 @@
                 ?: setting('logo_path', null, 'website')
                 ?: setting('site_logo', null, 'general');
 
-            $authLogoUrl = filled($authLogoPath) ? asset('storage/'.$authLogoPath) : null;
+            $authLogoUrl = media_url($authLogoPath);
         @endphp
 
         <div class="relative grid min-h-dvh lg:grid-cols-2">
@@ -166,38 +183,46 @@
                         @endif
                     </a>
 
-                    <br><br>
-
                     {{ $slot }}
                 </div>
             </div>
 
-            {{-- Right: food & medical product slider --}}
+            {{-- Right: quality workspace dashboard showcase --}}
             @php
-                $productSlides = [
+                $dashboardSlides = [
                     [
-                        'file' => 'assets/auth/products/food.jpg',
-                        'alt' => __('Food products'),
+                        'file' => 'assets/auth/dashboard/quality.jpg',
+                        'alt' => __('Quality overview dashboard'),
+                        'title' => __('Quality overview'),
+                        'caption' => __('Track inspections, pass rates, and open reports in one place.'),
                     ],
                     [
-                        'file' => 'assets/auth/products/medical.jpg',
-                        'alt' => __('Medical products'),
+                        'file' => 'assets/auth/dashboard/incoming.jpg',
+                        'alt' => __('Incoming inspection dashboard'),
+                        'title' => __('Incoming inspection'),
+                        'caption' => __('Monitor lots, vendors, sampling plans, and acceptance status.'),
+                    ],
+                    [
+                        'file' => 'assets/auth/dashboard/purchase.jpg',
+                        'alt' => __('Purchase workspace dashboard'),
+                        'title' => __('Purchase workspace'),
+                        'caption' => __('Follow orders, invoices, and on-time delivery at a glance.'),
                     ],
                 ];
 
-                $productSlides = array_map(function (array $slide) {
+                $dashboardSlides = array_map(function (array $slide) {
                     $path = public_path($slide['file']);
                     $slide['src'] = asset($slide['file']).'?v='.(is_file($path) ? filemtime($path) : time());
 
                     return $slide;
-                }, $productSlides);
+                }, $dashboardSlides);
             @endphp
 
             <div
                 class="admin-auth-brand relative min-h-dvh overflow-hidden text-white"
                 x-data="{
                     active: 0,
-                    total: {{ count($productSlides) }},
+                    total: {{ count($dashboardSlides) }},
                     timer: null,
                     start() {
                         this.stop();
@@ -222,59 +247,78 @@
                 x-on:mouseleave="start()"
                 role="region"
                 aria-roledescription="carousel"
-                aria-label="{{ __('Product gallery') }}"
+                aria-label="{{ __('Workspace gallery') }}"
             >
-                <div class="absolute inset-0">
-                    @foreach ($productSlides as $index => $slide)
-                        <div
-                            class="admin-auth-slide absolute inset-0 {{ $index === 0 ? 'is-active' : '' }}"
-                            :class="{ 'is-active': active === {{ $index }} }"
-                            x-bind:aria-hidden="active !== {{ $index }}"
-                        >
-                            <img
-                                src="{{ $slide['src'] }}"
-                                alt="{{ $slide['alt'] }}"
-                                class="h-full w-full object-cover"
-                                @if ($index === 0) fetchpriority="high" @else loading="lazy" @endif
-                            />
-                        </div>
-                    @endforeach
-                </div>
+                <div class="admin-auth-brand-grid pointer-events-none absolute inset-0"></div>
 
-                <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10"></div>
-
-                <div class="relative z-10 flex h-full min-h-dvh flex-col justify-end px-10 pb-12">
-                    <div class="flex items-center justify-between gap-4">
-                        <div class="flex items-center gap-2" role="tablist" aria-label="{{ __('Product slides') }}">
-                            @foreach ($productSlides as $index => $slide)
-                                <button
-                                    type="button"
-                                    class="h-2.5 rounded-full transition-all duration-300"
-                                    :class="active === {{ $index }} ? 'w-8 bg-white' : 'w-2.5 bg-white/40 hover:bg-white/70'"
-                                    x-on:click="go({{ $index }})"
-                                    :aria-selected="active === {{ $index }}"
-                                    aria-label="{{ __('Show slide :number', ['number' => $index + 1]) }}"
-                                ></button>
+                <div class="relative z-10 flex h-full min-h-dvh flex-col px-8 py-10 xl:px-14">
+                    <div class="flex flex-1 flex-col items-center justify-center">
+                        <div class="relative w-full max-w-[30rem]">
+                            @foreach ($dashboardSlides as $index => $slide)
+                                <div
+                                    class="admin-auth-slide {{ $index === 0 ? 'relative is-active' : 'absolute inset-0' }}"
+                                    :class="{ 'is-active': active === {{ $index }}, 'relative': active === {{ $index }}, 'absolute inset-0': active !== {{ $index }} }"
+                                    x-bind:aria-hidden="active !== {{ $index }}"
+                                >
+                                    <div class="admin-auth-slide-card overflow-hidden rounded-[1.75rem] shadow-[0_28px_70px_rgb(0_0_0_/_0.28)] ring-1 ring-white/30">
+                                        <img
+                                            src="{{ $slide['src'] }}"
+                                            alt="{{ $slide['alt'] }}"
+                                            class="aspect-[4/5] w-full object-cover object-[center_18%]"
+                                            @if ($index === 0) fetchpriority="high" @else loading="lazy" @endif
+                                        />
+                                    </div>
+                                </div>
                             @endforeach
                         </div>
+                    </div>
 
-                        <div class="flex items-center gap-2">
-                            <button
-                                type="button"
-                                class="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white backdrop-blur-sm transition hover:bg-white/20"
-                                x-on:click="prev(); start()"
-                                aria-label="{{ __('Previous slide') }}"
-                            >
-                                <flux:icon.chevron-left variant="mini" class="size-5" />
-                            </button>
-                            <button
-                                type="button"
-                                class="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white backdrop-blur-sm transition hover:bg-white/20"
-                                x-on:click="next(); start()"
-                                aria-label="{{ __('Next slide') }}"
-                            >
-                                <flux:icon.chevron-right variant="mini" class="size-5" />
-                            </button>
+                    <div class="mt-8 space-y-6">
+                        <div class="max-w-md">
+                            <p class="text-2xl font-semibold tracking-tight text-white xl:text-3xl">
+                                {{ __('The easiest way to manage your quality workspace.') }}
+                            </p>
+                            <p class="mt-2 text-sm text-white/80 xl:text-base">
+                                <span x-text="[
+                                    @foreach ($dashboardSlides as $slide)
+                                        @js($slide['caption']),
+                                    @endforeach
+                                ][active]"></span>
+                            </p>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-2" role="tablist" aria-label="{{ __('Workspace slides') }}">
+                                @foreach ($dashboardSlides as $index => $slide)
+                                    <button
+                                        type="button"
+                                        class="h-2.5 rounded-full transition-all duration-300"
+                                        :class="active === {{ $index }} ? 'w-8 bg-white' : 'w-2.5 bg-white/40 hover:bg-white/70'"
+                                        x-on:click="go({{ $index }})"
+                                        :aria-selected="active === {{ $index }}"
+                                        aria-label="{{ __('Show slide :number', ['number' => $index + 1]) }}"
+                                    ></button>
+                                @endforeach
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    class="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white backdrop-blur-sm transition hover:bg-white/20"
+                                    x-on:click="prev(); start()"
+                                    aria-label="{{ __('Previous slide') }}"
+                                >
+                                    <flux:icon.chevron-left variant="mini" class="size-5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    class="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white backdrop-blur-sm transition hover:bg-white/20"
+                                    x-on:click="next(); start()"
+                                    aria-label="{{ __('Next slide') }}"
+                                >
+                                    <flux:icon.chevron-right variant="mini" class="size-5" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Repositories\SettingRepository;
 use App\Repositories\SettingRepositoryInterface;
 use App\Services\SettingService;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -34,6 +35,10 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::before(function ($user, string $ability) {
             return $user instanceof User && $user->isUnrestrictedAdmin() ? true : null;
+        });
+
+        Blade::if('modulecan', function (string $module, string $action = 'access') {
+            return module_can($module, $action);
         });
 
         $this->applyMailSettings();

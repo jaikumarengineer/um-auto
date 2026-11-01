@@ -28,28 +28,21 @@ class Navigation extends Component
         $admin = $user?->isUnrestrictedAdmin() ?? false;
         $items = [];
 
-        $canDashboard = $admin || ($user?->canModule('dashboard') ?? false) || ($user?->isManagerLike() ?? false);
-        $canPurchase = $admin
-            || ($user?->isPurchase() ?? false)
-            || ($user?->canAnyModule(['quality.purchase.orders', 'quality.purchase.invoices']) ?? false)
-            || ($user?->isManagerLike() ?? false);
-        $canIncomingOps = $admin
-            || ($user?->isIncoming() ?? false)
-            || ($user?->canAnyModule([
-                'quality.incoming.parts',
-                'quality.incoming.standards',
-                'quality.incoming.sampling',
-                'quality.incoming.reports',
-            ]) ?? false)
-            || ($user?->isManagerLike() ?? false);
+        $canDashboard = $admin || ($user?->canModule('dashboard') ?? false);
+        $canPurchaseOrders = $admin || ($user?->canModule('quality.purchase.orders') ?? false);
+        $canPurchaseInvoices = $admin || ($user?->canModule('quality.purchase.invoices') ?? false);
+        $canPurchase = $canPurchaseOrders || $canPurchaseInvoices;
+        $canParts = $admin || ($user?->canModule('quality.incoming.parts') ?? false);
+        $canStandards = $admin || ($user?->canModule('quality.incoming.standards') ?? false);
+        $canSampling = $admin || ($user?->canModule('quality.incoming.sampling') ?? false);
+        $canReports = $admin || ($user?->canModule('quality.incoming.reports') ?? false);
+        $canIncomingOps = $canParts || $canStandards || $canSampling || $canReports;
         $canVendors = $admin || ($user?->canModule('quality.incoming.vendors') ?? false);
         $canCategories = $admin || ($user?->canModule('quality.incoming.categories') ?? false);
-        $canAnalysis = $admin
-            || $canPurchase
-            || $canIncomingOps
-            || ($user?->canModule('quality.analysis') ?? false);
-        $canUsers = $admin || ($user?->canModule('users') ?? false) || ($user?->isManagerLike() ?? false);
-        $canGrouping = $admin || ($user?->canModule('grouping') ?? false) || ($user?->isManagerLike() ?? false);
+        $canAnalysis = $admin || ($user?->canModule('quality.analysis') ?? false);
+        $canAlerts = $admin || ($user?->canModule('quality.alerts') ?? false);
+        $canUsers = $admin || ($user?->canModule('users') ?? false);
+        $canGrouping = $admin || ($user?->canModule('grouping') ?? false);
 
         if ($canDashboard) {
             $items = array_merge($items, [
@@ -66,7 +59,7 @@ class Navigation extends Component
             ]);
         }
 
-        if ($canAnalysis || $canPurchase || $canIncomingOps || $canVendors || $canCategories) {
+        if ($canAnalysis || $canAlerts || $canPurchase || $canIncomingOps || $canVendors || $canCategories) {
             $items[] = [
                 'type' => 'heading',
                 'label' => __('SPQol MES'),
@@ -82,26 +75,33 @@ class Navigation extends Component
             }
 
             if ($canPurchase) {
+                $purchaseChildren = [];
+
+                if ($canPurchaseOrders) {
+                    $purchaseChildren[] = [
+                        'label' => __('Purchase orders'),
+                        'route' => 'admin::quality.purchase.orders',
+                        'icon' => 'document-text',
+                        'active' => request()->routeIs('admin::quality.purchase.orders*'),
+                    ];
+                }
+
+                if ($canPurchaseInvoices) {
+                    $purchaseChildren[] = [
+                        'label' => __('Purchase invoices'),
+                        'route' => 'admin::quality.purchase.invoices',
+                        'icon' => 'receipt-percent',
+                        'active' => request()->routeIs('admin::quality.purchase.invoices*'),
+                    ];
+                }
+
                 $items[] = [
                     'type' => 'group',
                     'heading' => __('Purchase'),
                     'icon' => 'clipboard-document-list',
                     'expandable' => true,
                     'expanded' => request()->routeIs('admin::quality.purchase.*'),
-                    'children' => [
-                        [
-                            'label' => __('Purchase orders'),
-                            'route' => 'admin::quality.purchase.orders',
-                            'icon' => 'document-text',
-                            'active' => request()->routeIs('admin::quality.purchase.orders*'),
-                        ],
-                        [
-                            'label' => __('Purchase invoices'),
-                            'route' => 'admin::quality.purchase.invoices',
-                            'icon' => 'receipt-percent',
-                            'active' => request()->routeIs('admin::quality.purchase.invoices*'),
-                        ],
-                    ],
+                    'children' => $purchaseChildren,
                 ];
             }
 
@@ -126,27 +126,31 @@ class Navigation extends Component
                     ];
                 }
 
-                if ($canIncomingOps) {
-                    $incomingChildren = array_merge($incomingChildren, [
-                        [
-                            'label' => __('Incoming Quality parts'),
-                            'route' => 'admin::quality.incoming.parts',
-                            'icon' => 'cube',
-                            'active' => request()->routeIs('admin::quality.incoming.parts*'),
-                        ],
-                        [
-                            'label' => __('Sampling Plan Standards'),
-                            'route' => 'admin::quality.incoming.sampling',
-                            'icon' => 'queue-list',
-                            'active' => request()->routeIs('admin::quality.incoming.sampling'),
-                        ],
-                        [
-                            'label' => __('Incoming Quality Reports'),
-                            'route' => 'admin::quality.incoming.reports',
-                            'icon' => 'document-magnifying-glass',
-                            'active' => request()->routeIs('admin::quality.incoming.reports*'),
-                        ],
-                    ]);
+                if ($canParts) {
+                    $incomingChildren[] = [
+                        'label' => __('Incoming Quality parts'),
+                        'route' => 'admin::quality.incoming.parts',
+                        'icon' => 'cube',
+                        'active' => request()->routeIs('admin::quality.incoming.parts*'),
+                    ];
+                }
+
+                if ($canSampling) {
+                    $incomingChildren[] = [
+                        'label' => __('Sampling Plan Standards'),
+                        'route' => 'admin::quality.incoming.sampling',
+                        'icon' => 'queue-list',
+                        'active' => request()->routeIs('admin::quality.incoming.sampling'),
+                    ];
+                }
+
+                if ($canReports) {
+                    $incomingChildren[] = [
+                        'label' => __('Incoming Quality Reports'),
+                        'route' => 'admin::quality.incoming.reports',
+                        'icon' => 'document-magnifying-glass',
+                        'active' => request()->routeIs('admin::quality.incoming.reports*'),
+                    ];
                 }
 
                 $items[] = [
@@ -159,7 +163,7 @@ class Navigation extends Component
                 ];
             }
 
-            if ($canAnalysis) {
+            if ($canAlerts) {
                 $items[] = [
                     'label' => __('Alerts'),
                     'route' => 'admin::quality.alerts',
@@ -176,21 +180,21 @@ class Navigation extends Component
             ];
 
             if ($canGrouping) {
-                $items[] = [
-                    'type' => 'group',
-                    'heading' => __('Grouping'),
-                    'icon' => 'globe-alt',
-                    'expandable' => true,
-                    'expanded' => request()->routeIs('admin::grouping.list'),
-                    'children' => [
-                        [
-                            'label' => __('Country List'),
-                            'route' => 'admin::grouping.list',
-                            'icon' => 'globe-alt',
-                            'active' => request()->routeIs('admin::grouping.list'),
-                        ],
-                    ],
-                ];
+                // $items[] = [
+                //     'type' => 'group',
+                //     'heading' => __('Grouping'),
+                //     'icon' => 'globe-alt',
+                //     'expandable' => true,
+                //     'expanded' => request()->routeIs('admin::grouping.list'),
+                //     'children' => [
+                //         [
+                //             'label' => __('Country List'),
+                //             'route' => 'admin::grouping.list',
+                //             'icon' => 'globe-alt',
+                //             'active' => request()->routeIs('admin::grouping.list'),
+                //         ],
+                //     ],
+                // ];
             }
 
             if ($canUsers) {

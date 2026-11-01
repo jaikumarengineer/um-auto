@@ -97,7 +97,7 @@ new #[Layout('core::layouts.app')] class extends Component {
 <div>
     <x-core::ui.page-header
         :title="__('Alerts')"
-        :subtitle="__('Overdue, pending, and completed mail for PO vs PI and incoming inspection, plus day, week, and month summaries. Recipients are set per user.')"
+        :subtitle="__('Showing the list of alerts')"
         :breadcrumbs="[
             admin_breadcrumb_home(),
             ['label' => __('Alerts')],

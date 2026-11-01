@@ -20,6 +20,9 @@
     data-ui-font="{{ $uiFont }}"
     data-canvas="{{ $canvas }}"
     data-modal-blur="{{ $modalBlur ? 'true' : 'false' }}"
+    data-auth-user="{{ auth()->id() }}"
+    data-auth-home="{{ route(auth()->user()?->adminHomeRoute() ?? 'admin::dashboard', absolute: false) }}"
+    data-auth-login="{{ route('admin::login', absolute: false) }}"
 >
     <head>
         @include('partials.head')
@@ -47,8 +50,7 @@
                     >
                         <span class="admin-sidebar-brand-mark">
                             @php
-                                $logoPath = setting('admin_logo', null, 'general');
-                                $logoUrl = filled($logoPath) ? asset('storage/'.$logoPath) : null;
+                                $logoUrl = media_url(setting('admin_logo', null, 'general'));
                             @endphp
                             @if ($logoUrl)
                                 <img src="{{ $logoUrl }}" alt="{{ config('settings.site_name') }}" class="h-full w-full object-contain" />

@@ -44,23 +44,42 @@ Route::group([
             Route::post('editor/upload', EditorUploadController::class)->name('editor.upload');
 
             // Users
-            Route::group([
-                'prefix' => 'users',
-                'as' => 'users.',
-            ], function () {
-
-                Route::livewire('list', 'admin.users.users-list-page')->name('list');
-                Route::livewire('create', 'admin.users.users-add-edit-page')->name('create');
-                Route::livewire('edit/{user_id}', 'admin.users.users-add-edit-page')->name('edit');
+            Route::middleware(['module.access:users'])->group(function () {
+                Route::group([
+                    'prefix' => 'users',
+                    'as' => 'users.',
+                ], function () {
+                    Route::livewire('list', 'admin.users.users-list-page')->name('list');
+                });
             });
 
-            Route::group([
-                'prefix' => 'grouping',
-                'as' => 'grouping.',
-            ], function () {
+            Route::middleware(['module.access:users,add'])->group(function () {
+                Route::livewire('users/create', 'admin.users.users-add-edit-page')->name('users.create');
+            });
 
-                Route::livewire('list', 'admin.grouping.country-list-page')->name('list');
+            Route::middleware(['module.access:users,edit'])->group(function () {
+                Route::livewire('users/edit/{user_id}', 'admin.users.users-add-edit-page')->name('users.edit');
+            });
 
+            // Role templates — Admin only
+            Route::middleware(['admin.only'])->group(function () {
+                Route::group([
+                    'prefix' => 'users/roles',
+                    'as' => 'users.roles.',
+                ], function () {
+                    Route::livewire('/', 'admin.users.roles-list-page')->name('index');
+                    Route::livewire('create', 'admin.users.roles-add-edit-page')->name('create');
+                    Route::livewire('edit/{role}', 'admin.users.roles-add-edit-page')->name('edit');
+                });
+            });
+
+            Route::middleware(['module.access:grouping'])->group(function () {
+                Route::group([
+                    'prefix' => 'grouping',
+                    'as' => 'grouping.',
+                ], function () {
+                    Route::livewire('list', 'admin.grouping.country-list-page')->name('list');
+                });
             });
 
             // UI components demo

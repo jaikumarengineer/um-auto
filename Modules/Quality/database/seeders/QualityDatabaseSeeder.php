@@ -17,6 +17,7 @@ use Modules\Quality\Models\PurchaseOrder;
 use Modules\Quality\Models\PurchaseOrderLine;
 use Modules\Quality\Models\SamplingPlan;
 use Modules\Quality\Services\QualityDigest;
+use Modules\Quality\Support\Ml08SamplingPlan;
 
 class QualityDatabaseSeeder extends Seeder
 {
@@ -109,6 +110,7 @@ class QualityDatabaseSeeder extends Seeder
                 'uom' => $uom,
                 'category_id' => $categories[$category]->id,
                 'vendor_id' => $vendors[$vendor]->id,
+                'approved_on' => now()->subMonths(3)->toDateString(),
                 'drawing_revision' => $revision,
                 'is_active' => true,
             ]);
@@ -122,31 +124,16 @@ class QualityDatabaseSeeder extends Seeder
      */
     private function samplingPlans(): array
     {
-        $bands = [
-            '20' => [51, 150, 20, 1, 2],
-            '32' => [151, 280, 32, 1, 2],
-            '50' => [281, 500, 50, 1, 2],
-            '80' => [501, 1200, 80, 2, 3],
-            '125' => [1201, 3200, 125, 3, 4],
+        Ml08SamplingPlan::ensureLoaded();
+
+        $plans = [
+            'pad' => SamplingPlan::forQuantity(1000),
+            'sensor' => SamplingPlan::forQuantity(80),
+            'bolt' => SamplingPlan::forQuantity(1000),
         ];
 
-        $plans = [];
-
-        foreach ($bands as $code => [$min, $max, $sample, $accept, $reject]) {
-            $plans[$code] = SamplingPlan::query()->create([
-                'code' => 'SP-II-'.$code,
-                'name' => 'General inspection level II · sample '.$code,
-                'standard_ref' => 'ISO 2859-1',
-                'inspection_level' => 'II',
-                'aql' => 1,
-                'lot_min' => $min,
-                'lot_max' => $max,
-                'sample_size' => $sample,
-                'accept_number' => $accept,
-                'reject_number' => $reject,
-                'notes' => 'Normal inspection, single sampling.',
-                'is_active' => true,
-            ]);
+        if (in_array(null, $plans, true)) {
+            throw new \RuntimeException('ML-08 sampling bands are missing.');
         }
 
         return $plans;
@@ -159,20 +146,20 @@ class QualityDatabaseSeeder extends Seeder
      */
     private function standards(array $parts, array $plans): array
     {
-        $pad = $this->standard($parts['pad'], $plans['80'], 'IS-BRK-PAD-220', 'Incoming standard · front brake pad', [
-            ['Thickness', '12.0 ± 0.3 mm', 'Variable', 'Micrometer', 11.7, 12.3, 'mm', true],
-            ['Hardness', '60–80 HRR', 'Variable', 'Hardness tester', 60, 80, 'HRR', false],
-            ['Friction face', 'No cracks, chips, or glaze', 'Visual', 'Visual', null, null, null, true],
-            ['Identification', 'Part number and batch stamp present', 'Visual', 'Visual', null, null, null, false],
+        $pad = $this->standard($parts['pad'], $plans['pad'], 'IS-BRK-PAD-220', 'Incoming standard · front brake pad', [
+            ['Thickness', '12.0 ± 0.3 mm', 'Variable', 'Micrometer', 11.7, 12.3, 'mm', true, 'C'],
+            ['Hardness', '60–80 HRR', 'Variable', 'Hardness tester', 60, 80, 'HRR', false, 'M'],
+            ['Friction face', 'No cracks, chips, or glaze', 'Visual', 'Visual', null, null, null, false, 'O'],
+            ['Identification', 'Part number and batch stamp present', 'Visual', 'Visual', null, null, null, false, 'Mi'],
         ]);
 
-        $sensor = $this->standard($parts['sensor'], $plans['20'], 'IS-SNR-ABS-014', 'Incoming standard · wheel speed sensor', [
+        $sensor = $this->standard($parts['sensor'], $plans['sensor'], 'IS-SNR-ABS-014', 'Incoming standard · wheel speed sensor', [
             ['Resistance', '1.0–1.4 kΩ', 'Variable', 'Multimeter', 1, 1.4, 'kΩ', true],
             ['Connector', 'Pins straight and lock clicks', 'Visual', 'Visual', null, null, null, true],
             ['Output', 'Clean square wave when spun', 'Functional', 'Oscilloscope', null, null, null, true],
         ]);
 
-        $bolt = $this->standard($parts['bolt'], $plans['80'], 'IS-BLT-M10-55', 'Incoming standard · flange bolt', [
+        $bolt = $this->standard($parts['bolt'], $plans['bolt'], 'IS-BLT-M10-55', 'Incoming standard · flange bolt', [
             ['Thread', 'M10 x 1.5 GO / NO-GO', 'Attribute', 'Thread gauge', null, null, null, true],
             ['Length', '55 ± 0.4 mm', 'Variable', 'Caliper', 54.6, 55.4, 'mm', true],
             ['Grade mark', '10.9 head mark legible', 'Visual', 'Visual', null, null, null, false],
@@ -196,9 +183,24 @@ class QualityDatabaseSeeder extends Seeder
             'effective_from' => now()->subMonths(2)->toDateString(),
             'status' => 'active',
             'notes' => null,
+            'supplier_name' => $part->vendor?->name,
+            'supplier_code' => $part->vendor?->code,
+            'doc_no' => 'F/QA/02',
+            'page_label' => '1 of 1',
+            'drawing_rev' => $part->drawing_revision,
         ]);
 
-        foreach ($checks as $index => [$name, $spec, $method, $instrument, $min, $max, $unit, $critical]) {
+        $standard->revisions()->create([
+            'sequence' => 1,
+            'rev_no' => 'A',
+            'rev_date' => $standard->effective_from,
+            'description' => 'Initial standard',
+        ]);
+
+        foreach ($checks as $index => $row) {
+            [$name, $spec, $method, $instrument, $min, $max, $unit, $critical] = $row;
+            $class = $row[8] ?? ($critical ? 'C' : 'M');
+
             $standard->characteristics()->create([
                 'sequence' => $index + 1,
                 'name' => $name,
@@ -208,6 +210,7 @@ class QualityDatabaseSeeder extends Seeder
                 'tolerance_min' => $min,
                 'tolerance_max' => $max,
                 'unit' => $unit,
+                'characteristic_class' => $class,
                 'is_critical' => $critical,
             ]);
         }

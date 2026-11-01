@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Modules\Quality\Database\Seeders\QualityDatabaseSeeder;
+use Modules\Quality\Models\IncomingPart;
 use Modules\Quality\Models\PurchaseInvoice;
 use Modules\Quality\Models\PurchaseOrder;
 
@@ -15,6 +16,7 @@ it('renders the quality demo pages', function () {
 
     foreach ([
         'admin::quality.analysis',
+        'admin::quality.analysis.table',
         'admin::quality.alerts',
         'admin::quality.purchase.orders',
         'admin::quality.purchase.orders.create',
@@ -24,8 +26,6 @@ it('renders the quality demo pages', function () {
         'admin::quality.incoming.parts',
         'admin::quality.incoming.categories',
         'admin::quality.incoming.sampling',
-        'admin::quality.incoming.standards',
-        'admin::quality.incoming.standards.create',
         'admin::quality.incoming.reports',
         'admin::quality.incoming.reports.create',
     ] as $name) {
@@ -40,4 +40,10 @@ it('renders the quality demo pages', function () {
     $this->get(route('admin::quality.purchase.invoices.edit', $invoice))->assertOk();
     $this->get(route('admin::quality.purchase.invoices.format', $invoice))->assertOk();
     $this->get(route('admin::quality.incoming.reports.show', $invoice->lots()->whereHas('reports')->first()->reports()->first()))->assertOk();
+
+    $part = IncomingPart::query()->where('part_number', 'BRK-PAD-220')->firstOrFail();
+    $this->get(route('admin::quality.incoming.parts.standard', $part))
+        ->assertOk()
+        ->assertSee('Inspection Standard - Parts')
+        ->assertSee('General Tolerance');
 });

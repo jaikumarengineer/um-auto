@@ -1,7 +1,9 @@
 <?php
 
+use App\Concerns\AuthorizesModule;
 use App\Concerns\NotifiesWithSweetAlert;
 use App\Concerns\WithSorting;
+use App\Services\RecordApproval;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -11,9 +13,12 @@ use Modules\Quality\Services\QualityWorkflow;
 use Modules\Quality\Support\Qty;
 
 new #[Layout('core::layouts.app')] class extends Component {
+    use AuthorizesModule;
     use NotifiesWithSweetAlert;
     use WithPagination;
     use WithSorting;
+
+    private const MODULE = 'quality.purchase.orders';
 
     public string $search = '';
 
@@ -26,6 +31,14 @@ new #[Layout('core::layouts.app')] class extends Component {
     public string $sortDirection = 'desc';
 
     protected array $sortable = ['po_number', 'po_date', 'expected_date', 'status', 'id'];
+
+    public bool $showAcceptedStatusModal = false;
+
+    public ?int $acceptedStatusOrderId = null;
+
+    public string $acceptedStatus = RecordApproval::PENDING;
+
+    public string $acceptedStatusReason = '';
 
     public function updatingSearch(): void
     {
@@ -49,8 +62,44 @@ new #[Layout('core::layouts.app')] class extends Component {
         }
     }
 
+    public function openAcceptedStatus(int $id): void
+    {
+        abort_unless(auth()->user()?->canModule('quality.approvals', 'edit'), 403);
+
+        $order = PurchaseOrder::query()->findOrFail($id);
+        $this->acceptedStatusOrderId = $order->id;
+        $this->acceptedStatus = (string) ($order->approval_status ?: RecordApproval::PENDING);
+        $this->acceptedStatusReason = (string) ($order->rejection_reason ?? '');
+        $this->showAcceptedStatusModal = true;
+    }
+
+    public function saveAcceptedStatus(): void
+    {
+        abort_unless(auth()->user()?->canModule('quality.approvals', 'edit'), 403);
+
+        $this->validate(array_merge(
+            RecordApproval::statusValidationRules('acceptedStatus'),
+            ['acceptedStatusReason' => ['nullable', 'string', 'max:2000']],
+        ));
+
+        try {
+            $order = PurchaseOrder::query()->findOrFail($this->acceptedStatusOrderId);
+            app(QualityWorkflow::class)->updatePurchaseOrderAcceptedStatus(
+                $order,
+                $this->acceptedStatus,
+                $this->acceptedStatusReason ?: null,
+            );
+            $this->showAcceptedStatusModal = false;
+            $this->notifySuccess(__('Accepted status updated.'));
+        } catch (ValidationException $exception) {
+            $this->notifyError($exception->validator->errors()->first() ?: __('Could not update accepted status.'));
+        }
+    }
+
     public function deleteOrder(int $id): void
     {
+        $this->authorizeModule(self::MODULE, 'delete');
+
         try {
             app(QualityWorkflow::class)->deletePurchaseOrder(PurchaseOrder::query()->findOrFail($id));
             $this->notifySuccess(__('Purchase order deleted.'));
@@ -63,7 +112,7 @@ new #[Layout('core::layouts.app')] class extends Component {
     {
         $orders = $this->applySorting(
             PurchaseOrder::query()
-                ->with(['vendor', 'lines.invoiceLines', 'creator'])
+                ->with(['vendor', 'lines.invoiceLines', 'creator', 'approver'])
                 ->when($this->search !== '', function ($query) {
                     $term = '%'.$this->search.'%';
                     $query->where(function ($query) use ($term) {
@@ -77,6 +126,13 @@ new #[Layout('core::layouts.app')] class extends Component {
         return [
             'orders' => $orders,
             'source' => config('quality.po_source', 'manual'),
+            'canView' => module_can(self::MODULE, 'view'),
+            'canAdd' => module_can(self::MODULE, 'add'),
+            'canEdit' => module_can(self::MODULE, 'edit'),
+            'canDelete' => module_can(self::MODULE, 'delete'),
+            'canBookInvoice' => module_can('quality.purchase.invoices', 'add'),
+            'canEditAcceptedStatus' => module_can('quality.approvals', 'edit'),
+            'acceptedStatusLabels' => RecordApproval::statusLabels(),
         ];
     }
 }; ?>
@@ -92,9 +148,11 @@ new #[Layout('core::layouts.app')] class extends Component {
         ]"
     >
         <x-slot:actions>
-            <flux:button variant="primary" icon="plus" icon:variant="outline" :href="route('admin::quality.purchase.orders.create')" wire:navigate>
-                {{ __('New purchase order') }}
-            </flux:button>
+            @if ($canAdd)
+                <flux:button variant="primary" icon="plus" icon:variant="outline" :href="route('admin::quality.purchase.orders.create')" wire:navigate>
+                    {{ __('New purchase order') }}
+                </flux:button>
+            @endif
         </x-slot:actions>
     </x-core::ui.page-header>
 
@@ -136,7 +194,7 @@ new #[Layout('core::layouts.app')] class extends Component {
                     <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Balance') }}</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Remarks') }}</th>
                     <x-core::ui.sortable-th column="status" :label="__('Status')" />
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Approval') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Accepted Status') }}</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Created by') }}</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-zinc-500">{{ __('Actions') }}</th>
                 </tr>
@@ -153,27 +211,51 @@ new #[Layout('core::layouts.app')] class extends Component {
                         <td class="px-4 py-3 text-sm tabular-nums">{{ Qty::format($order->balanceQuantity()) }}</td>
                         <x-core::ui.long-text-cell :value="$order->remarks" />
                         <td class="px-4 py-3"><x-quality::status-pill :status="$order->status" /></td>
-                        <td class="px-4 py-3"><x-quality::status-pill :status="$order->approval_status ?? 'approved'" /></td>
-                        <td class="px-4 py-3 text-sm">{{ $order->creator?->full_name ?: '—' }}</td>
-                        <td class="px-4 py-3 text-right">
-                            <x-core::ui.actions-menu>
-                                <flux:menu.item icon="eye" icon:variant="outline" :href="route('admin::quality.purchase.orders.show', $order)" wire:navigate>
-                                    {{ __('View') }}
-                                </flux:menu.item>
-                                <flux:menu.item icon="document-text" icon:variant="outline" :href="route('admin::quality.purchase.orders.format', $order)">
-                                    {{ __('Format') }}
-                                </flux:menu.item>
-                                <flux:menu.item icon="pencil-square" icon:variant="outline" :href="route('admin::quality.purchase.orders.edit', $order)" wire:navigate>
-                                    {{ __('Edit') }}
-                                </flux:menu.item>
-                                @if (in_array($order->status, ['open', 'partial']) && ($order->approval_status ?? 'approved') === 'approved')
-                                    <flux:menu.item icon="plus" icon:variant="outline" :href="route('admin::quality.purchase.invoices.create', ['purchase_order' => $order->id])" wire:navigate>
-                                        {{ __('Book invoice') }}
-                                    </flux:menu.item>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-1.5">
+                                <x-quality::status-pill :status="$order->approval_status ?? 'approved'" />
+                                @if ($canEditAcceptedStatus)
+                                    <button
+                                        type="button"
+                                        class="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
+                                        wire:click="openAcceptedStatus({{ $order->id }})"
+                                        title="{{ __('Edit accepted status') }}"
+                                    >
+                                        <flux:icon name="pencil-square" class="size-4" />
+                                    </button>
                                 @endif
-                                <flux:menu.separator />
-                                <x-core::ui.confirm-button as="menu-item" method="deleteOrder" :params="[$order->id]" />
-                            </x-core::ui.actions-menu>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <x-quality::user-avatars :users="[$order->creator, $order->approver]" />
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            @if ($canView || $canEdit || $canDelete || ($canBookInvoice && in_array($order->status, ['open', 'partial']) && ($order->approval_status ?? 'approved') === 'approved'))
+                                <x-core::ui.actions-menu>
+                                    @if ($canView)
+                                        <flux:menu.item icon="eye" icon:variant="outline" :href="route('admin::quality.purchase.orders.show', $order)" wire:navigate>
+                                            {{ __('View') }}
+                                        </flux:menu.item>
+                                        <flux:menu.item icon="document-text" icon:variant="outline" :href="route('admin::quality.purchase.orders.format', $order)">
+                                            {{ __('Format') }}
+                                        </flux:menu.item>
+                                    @endif
+                                    @if ($canEdit)
+                                        <flux:menu.item icon="pencil-square" icon:variant="outline" :href="route('admin::quality.purchase.orders.edit', $order)" wire:navigate>
+                                            {{ __('Edit') }}
+                                        </flux:menu.item>
+                                    @endif
+                                    @if ($canBookInvoice && in_array($order->status, ['open', 'partial']) && ($order->approval_status ?? 'approved') === 'approved')
+                                        <flux:menu.item icon="plus" icon:variant="outline" :href="route('admin::quality.purchase.invoices.create', ['purchase_order' => $order->id])" wire:navigate>
+                                            {{ __('Book invoice') }}
+                                        </flux:menu.item>
+                                    @endif
+                                    @if ($canDelete)
+                                        <flux:menu.separator />
+                                        <x-core::ui.confirm-button as="menu-item" method="deleteOrder" :params="[$order->id]" />
+                                    @endif
+                                </x-core::ui.actions-menu>
+                            @endif
                         </td>
                     </tr>
                 @empty
@@ -186,4 +268,20 @@ new #[Layout('core::layouts.app')] class extends Component {
     </div>
 
     <x-core::ui.pagination :paginator="$orders" />
+
+    <flux:modal wire:model="showAcceptedStatusModal" class="max-w-md">
+        <div class="space-y-4">
+            <flux:heading size="lg">{{ __('Edit Accepted Status') }}</flux:heading>
+            <flux:select wire:model="acceptedStatus" :label="__('Accepted Status')">
+                @foreach ($acceptedStatusLabels as $value => $label)
+                    <flux:select.option :value="$value">{{ $label }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            <flux:textarea wire:model="acceptedStatusReason" :label="__('Reason (optional)')" rows="3" />
+            <div class="flex justify-end gap-2">
+                <flux:button variant="ghost" wire:click="$set('showAcceptedStatusModal', false)">{{ __('Cancel') }}</flux:button>
+                <flux:button variant="primary" wire:click="saveAcceptedStatus">{{ __('Save') }}</flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>

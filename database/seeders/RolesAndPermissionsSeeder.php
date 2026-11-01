@@ -2,11 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Models\Role;
 use App\Models\User;
 use App\Support\PermissionCatalog;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 class RolesAndPermissionsSeeder extends Seeder
@@ -15,16 +14,20 @@ class RolesAndPermissionsSeeder extends Seeder
     {
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        foreach (PermissionCatalog::allPermissionNames() as $name) {
-            Permission::findOrCreate($name, 'web');
-        }
+        PermissionCatalog::ensurePermissionsExist();
+
+        $descriptions = PermissionCatalog::roleDescriptions();
 
         foreach (['admin', 'manager', 'purchase', 'incoming'] as $roleName) {
             $role = Role::findOrCreate($roleName, 'web');
+            $role->forceFill([
+                'description' => $descriptions[$roleName] ?? null,
+                'is_active' => true,
+            ])->save();
 
             if ($roleName === 'admin') {
                 $role->syncPermissions([]);
-            } else {
+            } elseif ($role->permissions()->count() === 0) {
                 $role->syncPermissions(PermissionCatalog::defaultsFor($roleName));
             }
         }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesModule;
 use App\Concerns\NotifiesWithSweetAlert;
 use App\Concerns\WithSorting;
 use App\Livewire\Forms\CountryForm;
@@ -9,9 +10,12 @@ use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
 new #[Layout('core::layouts.app')] class extends Component {
+    use AuthorizesModule;
     use NotifiesWithSweetAlert;
     use WithPagination;
     use WithSorting;
+
+    private const MODULE = 'grouping';
 
     public CountryForm $form;
 
@@ -67,6 +71,8 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function editCountry(int $id): void
     {
+        $this->authorizeModule(self::MODULE, 'edit');
+
         $this->form->setCountry(Country::query()->findOrFail($id));
         $this->form->resetValidation();
         $this->showEditFlyout = true;
@@ -97,6 +103,8 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function toggleStatus(int $id): void
     {
+        $this->authorizeModule(self::MODULE, 'edit');
+
         $country = Country::query()->findOrFail($id);
         $country->update(['status' => ! $country->status]);
         $this->notifySuccess(__('Country status updated.'));
@@ -104,6 +112,8 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function deleteCountry(int $id): void
     {
+        $this->authorizeModule(self::MODULE, 'delete');
+
         Country::query()->findOrFail($id)->delete();
         $this->notifySuccess(__('Country deleted successfully.'));
     }
@@ -127,7 +137,13 @@ new #[Layout('core::layouts.app')] class extends Component {
                 ->when($this->statusFilter !== '', fn ($query) => $query->where('status', (bool) $this->statusFilter))
         )->paginate($this->perPage);
 
-        return compact('countries');
+        return [
+            'countries' => $countries,
+            'canView' => module_can(self::MODULE, 'view'),
+            'canAdd' => module_can(self::MODULE, 'add'),
+            'canEdit' => module_can(self::MODULE, 'edit'),
+            'canDelete' => module_can(self::MODULE, 'delete'),
+        ];
     }
 }; ?>
 
@@ -135,7 +151,7 @@ new #[Layout('core::layouts.app')] class extends Component {
     <x-core::ui.page-header
         class="admin-fade-in"
         :title="__('Countries')"
-        :subtitle="__('Browse and update country records.')"
+        :subtitle="__('Showing the list of countries')"
         :breadcrumbs="[
             ['label' => __('Dashboard'), 'route' => 'admin::dashboard'],
             ['label' => __('Grouping')],
@@ -182,7 +198,7 @@ new #[Layout('core::layouts.app')] class extends Component {
                     <x-core::ui.sortable-th column="phonecode" :label="__('Phone')" />
                     <x-core::ui.sortable-th column="timezone" :label="__('Timezone')" />
                     <x-core::ui.sortable-th column="status" :label="__('Status')" align="center" />
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                         {{ __('Actions') }}
                     </th>
                 </tr>
@@ -217,7 +233,19 @@ new #[Layout('core::layouts.app')] class extends Component {
                             @endif
                         </td>
                         <td class="px-4 py-3 text-center">
-                            <button type="button" wire:click="toggleStatus({{ $country->id }})" class="focus:outline-none" title="{{ __('Toggle status') }}">
+                            @if ($canEdit)
+                                <button type="button" wire:click="toggleStatus({{ $country->id }})" class="focus:outline-none" title="{{ __('Toggle status') }}">
+                                    @if ($country->status)
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                                            <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span> {{ __('Active') }}
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400">
+                                            <span class="h-1.5 w-1.5 rounded-full bg-zinc-400"></span> {{ __('Inactive') }}
+                                        </span>
+                                    @endif
+                                </button>
+                            @else
                                 @if ($country->status)
                                     <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/40 dark:text-green-300">
                                         <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span> {{ __('Active') }}
@@ -227,44 +255,52 @@ new #[Layout('core::layouts.app')] class extends Component {
                                         <span class="h-1.5 w-1.5 rounded-full bg-zinc-400"></span> {{ __('Inactive') }}
                                     </span>
                                 @endif
-                            </button>
+                            @endif
                         </td>
                         <td class="px-4 py-3 text-right">
                             <div class="flex items-center justify-end">
-                                <x-core::ui.actions-menu>
-                                    <flux:menu.item
-                                        as="button"
-                                        type="button"
-                                        icon="pencil-square"
-                                        icon:variant="outline"
-                                        wire:click="editCountry({{ $country->id }})"
-                                    >
-                                        {{ __('Edit') }}
-                                    </flux:menu.item>
+                                @if ($canEdit || $canDelete)
+                                    <x-core::ui.actions-menu>
+                                        @if ($canEdit)
+                                            <flux:menu.item
+                                                as="button"
+                                                type="button"
+                                                icon="pencil-square"
+                                                icon:variant="outline"
+                                                wire:click="editCountry({{ $country->id }})"
+                                            >
+                                                {{ __('Edit') }}
+                                            </flux:menu.item>
 
-                                    <flux:menu.item
-                                        as="button"
-                                        type="button"
-                                        :icon="$country->status ? 'no-symbol' : 'check-circle'"
-                                        icon:variant="outline"
-                                        wire:click="toggleStatus({{ $country->id }})"
-                                    >
-                                        {{ $country->status ? __('Deactivate') : __('Activate') }}
-                                    </flux:menu.item>
+                                            <flux:menu.item
+                                                as="button"
+                                                type="button"
+                                                :icon="$country->status ? 'no-symbol' : 'check-circle'"
+                                                icon:variant="outline"
+                                                wire:click="toggleStatus({{ $country->id }})"
+                                            >
+                                                {{ $country->status ? __('Deactivate') : __('Activate') }}
+                                            </flux:menu.item>
+                                        @endif
 
-                                    <flux:menu.separator />
+                                        @if ($canDelete)
+                                            @if ($canEdit)
+                                                <flux:menu.separator />
+                                            @endif
 
-                                    <x-core::ui.confirm-button
-                                        as="menu-item"
-                                        method="deleteCountry"
-                                        :params="[$country->id]"
-                                        :title="__('Are you sure?')"
-                                        :text="__('Once deleted, you will not be able to recover this country.')"
-                                        :confirm-text="__('Yes, delete it!')"
-                                        :cancel-text="__('Cancel')"
-                                        :menu-label="__('Delete')"
-                                    />
-                                </x-core::ui.actions-menu>
+                                            <x-core::ui.confirm-button
+                                                as="menu-item"
+                                                method="deleteCountry"
+                                                :params="[$country->id]"
+                                                :title="__('Are you sure?')"
+                                                :text="__('Once deleted, you will not be able to recover this country.')"
+                                                :confirm-text="__('Yes, delete it!')"
+                                                :cancel-text="__('Cancel')"
+                                                :menu-label="__('Delete')"
+                                            />
+                                        @endif
+                                    </x-core::ui.actions-menu>
+                                @endif
                             </div>
                         </td>
                     </tr>

@@ -13,7 +13,7 @@ class TraceabilityTree
     /**
      * @return array<string, mixed>|null
      */
-    public function forPart(IncomingPart $part, bool $linkOrders = true): ?array
+    public function forPart(IncomingPart $part, bool $linkOrders = true, bool $includeReports = true): ?array
     {
         if (! $linkOrders) {
             return $this->inspectionPartTree($part);
@@ -30,7 +30,7 @@ class TraceabilityTree
             'meta' => $part->name,
             'tone' => 'part',
             'url' => null,
-            'children' => $orders->map(function (PurchaseOrder $order) use ($part, $linkOrders) {
+            'children' => $orders->map(function (PurchaseOrder $order) use ($part, $linkOrders, $includeReports) {
                 $line = $order->lines->firstWhere('part_id', $part->id);
 
                 return [
@@ -39,7 +39,7 @@ class TraceabilityTree
                     'tone' => 'po',
                     'url' => $linkOrders ? route('admin::quality.purchase.orders.format', $order) : null,
                     'children' => $line
-                        ? $line->invoiceLines->map(fn ($invoiceLine) => $this->invoiceNode($invoiceLine->invoice, $invoiceLine, $linkOrders))->all()
+                        ? $line->invoiceLines->map(fn ($invoiceLine) => $this->invoiceNode($invoiceLine->invoice, $invoiceLine, $linkOrders, $includeReports))->all()
                         : [],
                 ];
             })->all(),
@@ -49,19 +49,19 @@ class TraceabilityTree
     /**
      * @return array<string, mixed>|null
      */
-    public function forLot(IncomingLot $lot, bool $linkOrders = true): ?array
+    public function forLot(IncomingLot $lot, bool $linkOrders = true, bool $includeReports = true): ?array
     {
         $lot->load(['part', 'vendor', 'reports.standard', 'invoiceLine.invoice.purchaseOrder.vendor']);
         $invoice = $lot->invoiceLine?->invoice;
         $order = $invoice?->purchaseOrder;
 
-        $children = $lot->reports->map(fn ($report) => [
+        $children = $includeReports ? $lot->reports->map(fn ($report) => [
             'title' => $report->report_number,
             'meta' => 'Inspection · '.$report->result.' · '.$report->inspected_at?->format('d M Y H:i'),
             'tone' => 'report',
             'url' => route('admin::quality.incoming.reports.show', $report),
             'children' => [],
-        ])->all();
+        ])->all() : [];
 
         if ($linkOrders && $invoice) {
             array_unshift($children, [
@@ -123,7 +123,7 @@ class TraceabilityTree
     /**
      * @return array<string, mixed>
      */
-    private function invoiceNode(?PurchaseInvoice $invoice, $invoiceLine, bool $linkOrders = true): array
+    private function invoiceNode(?PurchaseInvoice $invoice, $invoiceLine, bool $linkOrders = true, bool $includeReports = true): array
     {
         return [
             'title' => $invoice?->invoice_number ?? __('Invoice'),
@@ -135,13 +135,13 @@ class TraceabilityTree
                 'meta' => Qty::format($lot->qty).' · '.$lot->status,
                 'tone' => 'lot',
                 'url' => null,
-                'children' => $lot->reports->map(fn ($report) => [
+                'children' => $includeReports ? $lot->reports->map(fn ($report) => [
                     'title' => $report->report_number,
                     'meta' => $report->result.' · '.$report->inspected_at?->format('d M Y'),
                     'tone' => 'report',
                     'url' => route('admin::quality.incoming.reports.show', $report),
                     'children' => [],
-                ])->all(),
+                ])->all() : [],
             ])->all(),
         ];
     }

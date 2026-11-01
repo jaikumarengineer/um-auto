@@ -10,6 +10,8 @@ const STORAGE_SIDEBAR = 'admin.sidebarCollapsed';
 const STORAGE_FONT = 'admin.uiFont';
 const STORAGE_CANVAS = 'admin.canvas';
 const STORAGE_MODAL_BLUR = 'admin.modalBlur';
+const STORAGE_AUTH_USER = 'admin.auth.user';
+const STORAGE_AUTH_HOME = 'admin.auth.home';
 
 const VALID_LAYOUTS = ['floating', 'attached'];
 const VALID_PRESETS = ['ocean', 'forest', 'slate', 'rosewood', 'midnight', 'amber', 'violet', 'indigo', 'coral', 'graphite'];
@@ -472,6 +474,117 @@ function normalizeNotifyDetail(raw) {
     return Array.isArray(payload) ? (payload[0] ?? {}) : payload;
 }
 
+/**
+ * Cross-tab auth fingerprint.
+ * Login stamps the user id; logout clears it. Other tabs listen via `storage`
+ * and leave stale pages before a refresh hits a role-gated 403.
+ */
+function pageAuthUser() {
+    return document.documentElement.dataset.authUser ?? '';
+}
+
+function pageAuthHome() {
+    return document.documentElement.dataset.authHome || '/admin';
+}
+
+function pageAuthLogin() {
+    return document.documentElement.dataset.authLogin || '/admin/login';
+}
+
+function readStoredAuthUser() {
+    try {
+        return localStorage.getItem(STORAGE_AUTH_USER) ?? '';
+    } catch {
+        return '';
+    }
+}
+
+function readStoredAuthHome() {
+    try {
+        return localStorage.getItem(STORAGE_AUTH_HOME) || pageAuthHome();
+    } catch {
+        return pageAuthHome();
+    }
+}
+
+function writeStoredAuth(userId, home) {
+    try {
+        localStorage.setItem(STORAGE_AUTH_USER, userId ?? '');
+        if (home) {
+            localStorage.setItem(STORAGE_AUTH_HOME, home);
+        }
+    } catch {
+        // Ignore private-mode / blocked storage.
+    }
+}
+
+function redirectForAuthMismatch(storedUser) {
+    if (storedUser) {
+        location.replace(readStoredAuthHome());
+        return;
+    }
+
+    location.replace(pageAuthLogin());
+}
+
+function checkAuthFingerprint({ fromOtherTab = false } = {}) {
+    const pageUser = pageAuthUser();
+    const storedUser = readStoredAuthUser();
+
+    if (pageUser === storedUser) {
+        return;
+    }
+
+    // Another tab changed auth — this document's HTML is stale.
+    if (fromOtherTab) {
+        redirectForAuthMismatch(storedUser);
+        return;
+    }
+
+    // Same-tab load / Livewire navigate: server-rendered page is authoritative.
+    writeStoredAuth(pageUser, pageUser ? pageAuthHome() : undefined);
+}
+
+window.AdminAuth = {
+    stamp(userId, home) {
+        writeStoredAuth(String(userId ?? ''), home || pageAuthHome());
+    },
+    clear() {
+        writeStoredAuth('');
+    },
+};
+
+window.addEventListener('storage', (event) => {
+    if (event.key !== STORAGE_AUTH_USER) {
+        return;
+    }
+
+    checkAuthFingerprint({ fromOtherTab: true });
+});
+
+function bootAuthFingerprint() {
+    checkAuthFingerprint();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootAuthFingerprint);
+} else {
+    bootAuthFingerprint();
+}
+
+document.addEventListener('livewire:navigated', () => checkAuthFingerprint());
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        checkAuthFingerprint({ fromOtherTab: true });
+    }
+});
+window.addEventListener('pageshow', (event) => {
+    // bfcache restore only — normal loads already stamped via bootAuthFingerprint
+    if (event.persisted) {
+        checkAuthFingerprint({ fromOtherTab: true });
+    }
+});
+
 document.addEventListener('livewire:init', () => {
     Livewire.on('toast', (...args) => {
         const detail = normalizeNotifyDetail(args[0]);
@@ -488,6 +601,33 @@ document.addEventListener('livewire:init', () => {
     Livewire.on('SweetMessage', (...args) => {
         window.AdminNotify.sweetMessage(normalizeNotifyDetail(args[0]));
     });
+
+    Livewire.interceptRequest(({ onError }) => {
+        onError(({ response, preventDefault }) => {
+            const status = response?.status;
+
+            if (status !== 403 && status !== 419) {
+                return;
+            }
+
+            preventDefault();
+
+            const storedUser = readStoredAuthUser();
+            const pageUser = pageAuthUser();
+
+            if (storedUser && storedUser !== pageUser) {
+                redirectForAuthMismatch(storedUser);
+                return;
+            }
+
+            if (status === 419 || ! pageUser) {
+                location.replace(pageAuthLogin());
+                return;
+            }
+
+            location.replace(pageAuthHome());
+        });
+    });
 });
 
 window.addEventListener('OpenUrlNewTab', (event) => {
@@ -499,4 +639,45 @@ window.addEventListener('OpenUrlNewTab', (event) => {
 
 window.dispatchEventCall = function (name = '') {
     window.dispatchEvent(new CustomEvent(name));
+};
+
+window.iirPaintReading = window.iirPaintReading || function (el) {
+    if (! el) {
+        return;
+    }
+
+    const minRaw = el.dataset.iirMin;
+    const maxRaw = el.dataset.iirMax;
+    const min = minRaw === '' || minRaw === undefined ? NaN : Number(minRaw);
+    const max = maxRaw === '' || maxRaw === undefined ? NaN : Number(maxRaw);
+    const text = String(el.value ?? '').trim();
+    let tone = 'empty';
+
+    if (text !== '' && Number.isFinite(min) && Number.isFinite(max)) {
+        const number = Number(text);
+        // Inclusive range: 55 ± 0.4 => 54.6..55.4
+        tone = Number.isFinite(number) && number >= min && number <= max ? 'ok' : 'ng';
+    }
+
+    el.dataset.iirTone = tone;
+    el.classList.toggle('iir-ok', tone === 'ok');
+    el.classList.toggle('iir-ng', tone === 'ng');
+
+    if (tone === 'ok') {
+        el.style.setProperty('background', '#16a34a', 'important');
+        el.style.setProperty('color', '#fff', 'important');
+        el.style.setProperty('border-color', '#15803d', 'important');
+        return;
+    }
+
+    if (tone === 'ng') {
+        el.style.setProperty('background', '#dc2626', 'important');
+        el.style.setProperty('color', '#fff', 'important');
+        el.style.setProperty('border-color', '#b91c1c', 'important');
+        return;
+    }
+
+    el.style.setProperty('background', '#fff', 'important');
+    el.style.setProperty('color', '#111', 'important');
+    el.style.setProperty('border-color', '#d4d4d8', 'important');
 };

@@ -12,15 +12,30 @@
 @php
     $name = $attributes->whereStartsWith('wire:model')->first() ?? $attributes->get('name');
     $invalid = $name && $errors->has($name);
-    $normalized = collect($options)->map(function ($label, $value) {
+    $utf8 = static function (mixed $value): string {
+        $text = (string) $value;
+
+        if ($text === '' || mb_check_encoding($text, 'UTF-8')) {
+            return $text;
+        }
+
+        $converted = @mb_convert_encoding($text, 'UTF-8', 'Windows-1252');
+
+        if (is_string($converted) && mb_check_encoding($converted, 'UTF-8')) {
+            return $converted;
+        }
+
+        return iconv('UTF-8', 'UTF-8//IGNORE', $text) ?: '';
+    };
+    $normalized = collect($options)->map(function ($label, $value) use ($utf8) {
         if (is_array($label)) {
             return [
-                'id' => (string) ($label['value'] ?? $label['id'] ?? ''),
-                'text' => (string) ($label['label'] ?? $label['text'] ?? ''),
+                'id' => $utf8($label['value'] ?? $label['id'] ?? ''),
+                'text' => $utf8($label['label'] ?? $label['text'] ?? ''),
             ];
         }
 
-        return ['id' => (string) $value, 'text' => (string) $label];
+        return ['id' => $utf8($value), 'text' => $utf8($label)];
     })->values();
 
     // Select2 needs a blank option for placeholders / empty state on single selects,
@@ -56,7 +71,9 @@
                     multiple: @js($multiple),
                     closeOnSelect: ! @js($multiple),
                     data: @js($normalized),
-                    dropdownParent: $(this.$el),
+                    // Attach to dialog when inside a Flux modal; otherwise body so
+                    // overflow:hidden cards (e.g. admin-card) do not clip the menu.
+                    dropdownParent: $(this.$el.closest('dialog') || document.body),
                     selectionCssClass: 'admin-select2-selection',
                     dropdownCssClass: 'admin-select2-dropdown',
                 };
@@ -76,14 +93,19 @@
                 @endif
                 $el.select2(config);
 
+                let syncing = false;
                 const writeWire = (val) => {
                     @if ($name)
+                        if (syncing) return;
+                        syncing = true;
                         const next = val === null || val === undefined ? emptyValue : val;
-                        $wire.set(@js($name), next);
+                        // Third arg true sends a request so wire:model.live updated* hooks run.
+                        $wire.set(@js($name), next, true);
+                        queueMicrotask(() => { syncing = false; });
                     @endif
                 };
 
-                $el.on('change', () => writeWire($el.val()));
+                $el.on('change select2:select select2:clear', () => writeWire($el.val()));
                 this.instance = $el;
 
                 queueMicrotask(() => {

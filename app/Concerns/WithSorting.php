@@ -26,7 +26,9 @@ trait WithSorting
         }
 
         if (method_exists($this, 'resetPage')) {
-            $this->resetPage();
+            $this->resetPage(property_exists($this, 'sortPaginationPageName')
+                ? ($this->sortPaginationPageName ?: 'page')
+                : 'page');
         }
     }
 

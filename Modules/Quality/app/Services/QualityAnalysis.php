@@ -138,6 +138,73 @@ class QualityAnalysis
     }
 
     /**
+     * Same department graph series as {@see departmentGraph()}, shaped as table rows.
+     *
+     * @return array{
+     *     title: string,
+     *     subtitle: string,
+     *     columns: list<string>,
+     *     rows: list<array{label: string, values: list<float|null>}>,
+     *     totals: list<float|null>
+     * }|null
+     */
+    public function departmentGraphRows(string $department, string $period, string $from, string $to): ?array
+    {
+        $graph = $this->departmentGraph($department, $period, $from, $to);
+
+        if ($graph === null) {
+            return null;
+        }
+
+        $labels = $graph['dataset']['labels'] ?? [];
+        $datasets = $graph['dataset']['datasets'] ?? [];
+        $columns = array_map(
+            static fn (array $dataset): string => (string) ($dataset['label'] ?? ''),
+            $datasets,
+        );
+
+        $rows = [];
+        foreach ($labels as $index => $label) {
+            $values = [];
+            foreach ($datasets as $dataset) {
+                $raw = $dataset['data'][$index] ?? null;
+                $values[] = $raw === null ? null : Qty::num($raw);
+            }
+
+            $rows[] = [
+                'label' => (string) $label,
+                'values' => $values,
+            ];
+        }
+
+        $totals = [];
+        foreach ($columns as $columnIndex => $_) {
+            $sum = 0.0;
+            $hasValue = false;
+
+            foreach ($rows as $row) {
+                $value = $row['values'][$columnIndex] ?? null;
+                if ($value === null) {
+                    continue;
+                }
+
+                $sum += $value;
+                $hasValue = true;
+            }
+
+            $totals[] = $hasValue ? Qty::num($sum) : null;
+        }
+
+        return [
+            'title' => $graph['title'],
+            'subtitle' => $graph['subtitle'],
+            'columns' => $columns,
+            'rows' => $rows,
+            'totals' => $totals,
+        ];
+    }
+
+    /**
      * Purchase orders this year beside last year.
      *
      * Months run across the axis, then the two yearly totals, matching a grouped
@@ -566,12 +633,12 @@ class QualityAnalysis
             'waiting' => $inspection ? $lots->filter(fn (IncomingLot $lot) => $lot->reports->isEmpty())->count() : 0,
             'overdue' => $commercial ? $orders->filter(fn (PurchaseOrder $order) => $order->isOverdue())->count() : 0,
             'coverage_chart' => $inspection ? $coverage : $emptyChart,
-            'parts' => $inspection ? $parts : collect(),
-            'lots' => $inspection ? $lots->sortBy('lot_number')->values() : collect(),
-            'selected_part_id' => $inspection ? $selectedPart?->id : null,
-            'selected_lot_id' => $inspection ? $selectedLot?->id : null,
-            'part_tree' => $inspection && $selectedPart ? $tree->forPart($selectedPart, $commercial) : null,
-            'lot_tree' => $inspection && $selectedLot ? $tree->forLot($selectedLot, $commercial) : null,
+            'parts' => $parts,
+            'lots' => $lots->sortBy('lot_number')->values(),
+            'selected_part_id' => $selectedPart?->id,
+            'selected_lot_id' => $selectedLot?->id,
+            'part_tree' => $selectedPart ? $tree->forPart($selectedPart, $commercial, $inspection) : null,
+            'lot_tree' => $selectedLot ? $tree->forLot($selectedLot, $commercial, $inspection) : null,
         ];
     }
 

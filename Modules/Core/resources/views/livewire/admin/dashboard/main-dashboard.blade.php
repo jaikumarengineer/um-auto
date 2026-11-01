@@ -24,53 +24,6 @@ new #[Layout('core::layouts.app')] class extends Component {
             default => __('Good evening'),
         };
 
-        $dayProgress = min(100, (int) round(((now()->hour * 60 + now()->minute) / (24 * 60)) * 100));
-
-        $schedule = [
-            ['time' => '09:00', 'title' => __('Team standup'), 'meta' => __('15 min · Ops'), 'done' => true, 'icon' => 'users'],
-            ['time' => '11:30', 'title' => __('Review user onboarding'), 'meta' => __('Product'), 'done' => true, 'icon' => 'clipboard-document-check'],
-            ['time' => '14:00', 'title' => __('Clear application caches'), 'meta' => __('Maintenance'), 'done' => false, 'icon' => 'bolt'],
-            ['time' => '16:30', 'title' => __('Security checklist'), 'meta' => __('Admin'), 'done' => false, 'icon' => 'shield-check'],
-        ];
-
-        $activity = [
-            ['label' => __('New staff account invited'), 'when' => __('12 min ago'), 'tone' => 'primary'],
-            ['label' => __('General settings updated'), 'when' => __('1 hr ago'), 'tone' => 'secondary'],
-            ['label' => __('Failed login blocked'), 'when' => __('3 hr ago'), 'tone' => 'danger'],
-            ['label' => __('Weekly digest queued'), 'when' => __('Yesterday'), 'tone' => 'muted'],
-        ];
-
-        $stats = [
-            [
-                'label' => __('Work hours'),
-                'value' => '6.4h',
-                'hint' => __('of 8h planned'),
-                'progress' => 80,
-                'color' => 'primary',
-            ],
-            [
-                'label' => __('Tasks'),
-                'value' => '12/18',
-                'hint' => __('completed today'),
-                'progress' => 67,
-                'color' => 'secondary',
-            ],
-            [
-                'label' => __('Uptime'),
-                'value' => '99.9%',
-                'hint' => __('last 30 days'),
-                'progress' => 99,
-                'color' => 'primary',
-            ],
-            [
-                'label' => __('Support'),
-                'value' => '4',
-                'hint' => __('open tickets'),
-                'progress' => 40,
-                'color' => 'secondary',
-            ],
-        ];
-
         // Sample time-series for the last 7 days (deterministic-ish, no extra tables required)
         $days = collect(range(6, 0))->map(fn ($i) => now()->subDays($i));
         $userGrowthChart = [
@@ -82,14 +35,6 @@ new #[Layout('core::layouts.app')] class extends Component {
                         fn ($d) => User::query()->whereDate('created_at', $d->toDateString())->count()
                     )->all(),
                 ],
-            ],
-        ];
-
-        $weeklyActivityChart = [
-            'labels' => $days->map(fn ($d) => $d->translatedFormat('D'))->all(),
-            'datasets' => [
-                ['label' => __('Logins'), 'data' => [12, 19, 14, 22, 18, 9, 6]],
-                ['label' => __('Actions'), 'data' => [30, 42, 35, 50, 44, 20, 15]],
             ],
         ];
 
@@ -116,12 +61,7 @@ new #[Layout('core::layouts.app')] class extends Component {
             'newThisWeek',
             'recentUsers',
             'greeting',
-            'dayProgress',
-            'schedule',
-            'activity',
-            'stats',
             'userGrowthChart',
-            'weeklyActivityChart',
             'roleBreakdownChart',
             'statusBreakdownChart',
         );
@@ -138,7 +78,7 @@ new #[Layout('core::layouts.app')] class extends Component {
                     {{ $greeting }}, {{ auth()->user()->name }}
                 </h1>
                 <p class="mt-2 max-w-xl text-sm text-zinc-500 dark:text-zinc-400">
-                    {{ __('Next up: Clear application caches at 14:00 · :count users online sample workspace.', ['count' => max($activeUsers, 1)]) }}
+                    {{ __('Here’s a quick look at your workspace — :count active users online.', ['count' => max($activeUsers, 0)]) }}
                 </p>
                 <div class="mt-5 flex flex-wrap gap-2.5">
                     <flux:button variant="primary" icon="plus" icon:variant="outline" :href="route('admin::users.create')" wire:navigate class="!rounded-full">
@@ -153,7 +93,22 @@ new #[Layout('core::layouts.app')] class extends Component {
                 </div>
             </div>
 
-            <div class="flex shrink-0 items-center gap-4 rounded-3xl bg-[var(--admin-surface-muted)] px-5 py-4">
+            <div
+                class="flex shrink-0 items-center gap-4 rounded-3xl bg-[var(--admin-surface-muted)] px-5 py-4"
+                x-data="{
+                    hours: '{{ now()->format('H') }}',
+                    minutes: '{{ now()->format('i') }}',
+                    seconds: '{{ now()->format('s') }}',
+                    period: '',
+                    tick() {
+                        const now = new Date();
+                        this.hours = String(now.getHours()).padStart(2, '0');
+                        this.minutes = String(now.getMinutes()).padStart(2, '0');
+                        this.seconds = String(now.getSeconds()).padStart(2, '0');
+                    }
+                }"
+                x-init="tick(); setInterval(() => tick(), 1000)"
+            >
                 <div class="relative flex size-16 items-center justify-center">
                     <svg class="absolute inset-0 size-16 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
                         <circle cx="18" cy="18" r="15.5" fill="none" class="stroke-zinc-200 dark:stroke-zinc-700" stroke-width="3" />
@@ -165,14 +120,16 @@ new #[Layout('core::layouts.app')] class extends Component {
                             stroke="var(--admin-primary)"
                             stroke-width="3"
                             stroke-linecap="round"
-                            stroke-dasharray="{{ $dayProgress }}, 100"
+                            :stroke-dasharray="((Number(seconds) / 60) * 100) + ', 100'"
                         />
                     </svg>
-                    <span class="text-xs font-semibold">{{ $dayProgress }}%</span>
+                    <flux:icon.clock variant="outline" class="size-6 stroke-[1.5] text-primary" />
                 </div>
                 <div>
-                    <p class="text-2xl font-semibold tabular-nums">{{ now()->format('H:i') }}</p>
-                    <p class="text-xs text-zinc-500">{{ __('Day complete') }}</p>
+                    <p class="text-2xl font-semibold tabular-nums tracking-tight">
+                        <span x-text="hours">{{ now()->format('H') }}</span>:<span x-text="minutes">{{ now()->format('i') }}</span>:<span x-text="seconds">{{ now()->format('s') }}</span>
+                    </p>
+                    <p class="text-xs text-zinc-500">{{ now()->translatedFormat('l') }} · {{ __('Local time') }}</p>
                 </div>
             </div>
         </div>
@@ -218,25 +175,6 @@ new #[Layout('core::layouts.app')] class extends Component {
         </div>
     </section>
 
-    {{-- Mini progress stats --}}
-    <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        @foreach ($stats as $index => $stat)
-            <div class="admin-card admin-fade-in p-4 admin-fade-in-delay-{{ min($index + 1, 4) }}">
-                <div class="flex items-center justify-between gap-2">
-                    <p class="text-sm text-zinc-500">{{ $stat['label'] }}</p>
-                    <p class="text-lg font-semibold tabular-nums">{{ $stat['value'] }}</p>
-                </div>
-                <div class="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                    <div
-                        class="h-full rounded-full {{ $stat['color'] === 'secondary' ? 'bg-secondary' : 'bg-primary' }}"
-                        style="width: {{ $stat['progress'] }}%"
-                    ></div>
-                </div>
-                <p class="mt-2 text-xs text-zinc-500">{{ $stat['hint'] }}</p>
-            </div>
-        @endforeach
-    </section>
-
     {{-- Charts --}}
     <div class="grid gap-4 xl:grid-cols-3">
         <section class="admin-card admin-fade-in admin-fade-in-delay-1 p-5 xl:col-span-2">
@@ -258,11 +196,56 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     <div class="grid gap-4 xl:grid-cols-3">
         <section class="admin-card admin-fade-in admin-fade-in-delay-3 p-5 xl:col-span-2">
-            <div class="mb-3">
-                <flux:heading size="lg">{{ __('Weekly activity') }}</flux:heading>
-                <flux:subheading>{{ __('Sample logins vs actions.') }}</flux:subheading>
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <flux:heading size="lg">{{ __('Recent users') }}</flux:heading>
+                    <flux:subheading>{{ __('Latest accounts in the system.') }}</flux:subheading>
+                </div>
+                <flux:button size="sm" variant="ghost" :href="route('admin::users.list')" wire:navigate>
+                    {{ __('View all') }}
+                </flux:button>
             </div>
-            <x-core::charts.chart type="bar" :dataset="$weeklyActivityChart" :height="240" />
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <thead class="bg-[var(--admin-surface-muted)]">
+                        <tr>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Name') }}</th>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Email') }}</th>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Role') }}</th>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-zinc-500">{{ __('Status') }}</th>
+                            <th class="px-3 py-3 text-right text-xs font-semibold text-zinc-500">{{ __('Joined') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                        @forelse ($recentUsers as $user)
+                            <tr class="transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
+                                <td class="px-3 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <span class="flex size-8 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                                            {{ $user->initials() }}
+                                        </span>
+                                        <span class="text-sm font-medium">{{ $user->name }} {{ $user->last_name }}</span>
+                                    </div>
+                                </td>
+                                <td class="px-3 py-3 text-sm text-zinc-600 dark:text-zinc-300">{{ $user->email }}</td>
+                                <td class="px-3 py-3 text-sm capitalize">{{ str_replace('_', ' ', $user->user_type ?? 'user') }}</td>
+                                <td class="px-3 py-3">
+                                    @if ($user->is_active)
+                                        <span class="inline-flex rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/40 dark:text-green-300">{{ __('Active') }}</span>
+                                    @else
+                                        <span class="inline-flex rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-300">{{ __('Inactive') }}</span>
+                                    @endif
+                                </td>
+                                <td class="px-3 py-3 text-right text-sm text-zinc-500">{{ $user->created_at?->diffForHumans() }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="px-3 py-10 text-center text-sm text-zinc-500">{{ __('No users yet.') }}</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </section>
 
         <section class="admin-card admin-fade-in admin-fade-in-delay-4 p-5">
@@ -273,124 +256,4 @@ new #[Layout('core::layouts.app')] class extends Component {
             <x-core::charts.chart type="doughnut" :dataset="$statusBreakdownChart" :height="240" />
         </section>
     </div>
-
-    <div class="grid gap-4 xl:grid-cols-5">
-        {{-- Schedule --}}
-        <section class="admin-card admin-fade-in admin-fade-in-delay-2 p-5 xl:col-span-3">
-            <div class="mb-4 flex items-center justify-between gap-3">
-                <div>
-                    <flux:heading size="lg">{{ __('Today’s schedule') }}</flux:heading>
-                    <flux:subheading>{{ __('Sample admin checklist for the day.') }}</flux:subheading>
-                </div>
-                <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                    {{ collect($schedule)->where('done', true)->count() }}/{{ count($schedule) }}
-                </span>
-            </div>
-
-            <ul class="space-y-3">
-                @foreach ($schedule as $item)
-                    <li class="flex items-center gap-3 rounded-2xl border border-zinc-200/80 px-3 py-3 dark:border-zinc-700/80">
-                        <span class="w-12 shrink-0 text-xs font-medium tabular-nums text-zinc-500">{{ $item['time'] }}</span>
-                        <span @class([
-                            'flex size-9 shrink-0 items-center justify-center rounded-xl',
-                            'bg-primary/15 text-primary' => $item['done'],
-                            'bg-zinc-100 text-zinc-500 dark:bg-zinc-800' => ! $item['done'],
-                        ])>
-                            <flux:icon :name="$item['icon']" variant="outline" class="size-4 stroke-[1.5]" />
-                        </span>
-                        <div class="min-w-0 flex-1">
-                            <p @class(['truncate text-sm font-medium', 'line-through opacity-60' => $item['done']])>
-                                {{ $item['title'] }}
-                            </p>
-                            <p class="truncate text-xs text-zinc-500">{{ $item['meta'] }}</p>
-                        </div>
-                        @if ($item['done'])
-                            <flux:icon.check-circle variant="outline" class="size-5 stroke-[1.5] text-primary" />
-                        @else
-                            <span class="size-2 rounded-full bg-secondary"></span>
-                        @endif
-                    </li>
-                @endforeach
-            </ul>
-        </section>
-
-        {{-- Activity --}}
-        <section class="admin-card admin-fade-in admin-fade-in-delay-3 p-5 xl:col-span-2">
-            <div class="mb-4">
-                <flux:heading size="lg">{{ __('Activity') }}</flux:heading>
-                <flux:subheading>{{ __('Recent sample events.') }}</flux:subheading>
-            </div>
-            <ul class="space-y-3">
-                @foreach ($activity as $row)
-                    <li class="flex items-start gap-3">
-                        <span @class([
-                            'mt-1 size-2.5 shrink-0 rounded-full',
-                            'bg-primary' => $row['tone'] === 'primary',
-                            'bg-secondary' => $row['tone'] === 'secondary',
-                            'bg-red-500' => $row['tone'] === 'danger',
-                            'bg-zinc-400' => $row['tone'] === 'muted',
-                        ])></span>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-medium">{{ $row['label'] }}</p>
-                            <p class="text-xs text-zinc-500">{{ $row['when'] }}</p>
-                        </div>
-                    </li>
-                @endforeach
-            </ul>
-        </section>
-    </div>
-
-    {{-- Recent users table --}}
-    <section class="admin-card admin-fade-in admin-fade-in-delay-4 overflow-hidden">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-5 py-4 dark:border-zinc-700">
-            <div>
-                <flux:heading size="lg">{{ __('Recent users') }}</flux:heading>
-                <flux:subheading>{{ __('Latest accounts in the system.') }}</flux:subheading>
-            </div>
-            <flux:button size="sm" variant="ghost" :href="route('admin::users.list')" wire:navigate>
-                {{ __('View all') }}
-            </flux:button>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
-                <thead class="bg-[var(--admin-surface-muted)]">
-                    <tr>
-                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Name') }}</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Email') }}</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Role') }}</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Status') }}</th>
-                        <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Joined') }}</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                    @forelse ($recentUsers as $user)
-                        <tr class="transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
-                            <td class="px-5 py-3">
-                                <div class="flex items-center gap-3">
-                                    <span class="flex size-8 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
-                                        {{ $user->initials() }}
-                                    </span>
-                                    <span class="text-sm font-medium">{{ $user->name }} {{ $user->last_name }}</span>
-                                </div>
-                            </td>
-                            <td class="px-5 py-3 text-sm text-zinc-600 dark:text-zinc-300">{{ $user->email }}</td>
-                            <td class="px-5 py-3 text-sm capitalize">{{ str_replace('_', ' ', $user->user_type ?? 'user') }}</td>
-                            <td class="px-5 py-3">
-                                @if ($user->is_active)
-                                    <span class="inline-flex rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/40 dark:text-green-300">{{ __('Active') }}</span>
-                                @else
-                                    <span class="inline-flex rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-300">{{ __('Inactive') }}</span>
-                                @endif
-                            </td>
-                            <td class="px-5 py-3 text-right text-sm text-zinc-500">{{ $user->created_at?->diffForHumans() }}</td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5" class="px-5 py-10 text-center text-sm text-zinc-500">{{ __('No users yet.') }}</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </section>
 </div>

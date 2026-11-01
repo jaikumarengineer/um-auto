@@ -12,7 +12,13 @@ class InspectionResult extends Model
         'inspection_characteristic_id',
         'characteristic_name',
         'specification',
+        'method',
+        'characteristic_class',
         'measured_value',
+        'supplier_readings',
+        'umac_readings',
+        'supplier_result',
+        'umac_result',
         'result',
         'is_critical',
         'remarks',
@@ -22,6 +28,8 @@ class InspectionResult extends Model
     {
         return [
             'is_critical' => 'boolean',
+            'supplier_readings' => 'array',
+            'umac_readings' => 'array',
         ];
     }
 

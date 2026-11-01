@@ -17,6 +17,8 @@
         'received' => 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
         'partial' => 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
         'pending' => 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+        'under_review' => 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+        'sent_back' => 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200',
         'conditional' => 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
         'under_inspection' => 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
         'rejected' => 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',

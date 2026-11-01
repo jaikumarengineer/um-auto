@@ -9,6 +9,7 @@ class PartCategory extends Model
 {
     protected $fillable = [
         'name',
+        'notes',
     ];
 
     public function parts(): HasMany

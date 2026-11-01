@@ -519,6 +519,23 @@ body.admin-shell [data-flux-modal] > dialog[data-flux-flyout] {
         background-color var(--admin-duration) var(--admin-ease);
 }
 
+/* Long Remark / Note / Description cells — wrap and grow with content */
+.admin-long-text-cell {
+    min-width: 12rem;
+    max-width: 22rem;
+    vertical-align: top;
+}
+
+.admin-long-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.45;
+    max-height: 8.5rem;
+    overflow-y: auto;
+    resize: vertical;
+}
+
 .admin-icon-btn {
     border-radius: 9999px !important;
 }
@@ -1793,9 +1810,22 @@ body.admin-shell .admin-search-input input {
 .admin-select2-shell .select2-container--default .select2-selection--single .select2-selection__rendered {
     line-height: 1.5rem;
     padding-left: 0;
-    padding-right: 0;
+    padding-right: 1.75rem;
     color: rgb(63 63 70);
     font-size: 0.875rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+.admin-select2-shell .select2-container--default .select2-selection--single {
+    overflow: hidden;
+}
+
+.admin-select2-shell {
+    min-width: 0;
+    max-width: 100%;
 }
 
 .dark .admin-select2-shell .select2-container--default .select2-selection--single .select2-selection__rendered {
@@ -1942,6 +1972,11 @@ body.admin-shell .admin-search-input input {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--admin-primary) 25%, transparent);
 }
 
+/* Body-attached menus must sit above admin cards / sticky chrome */
+.select2-container--open {
+    z-index: 80;
+}
+
 .admin-select2-dropdown.select2-dropdown,
 .admin-select2-shell .select2-dropdown {
     border: 1px solid rgb(228 228 231);
@@ -1952,7 +1987,7 @@ body.admin-shell .admin-search-input input {
     overflow: hidden;
     margin-top: 0.35rem;
     padding: 0.35rem 0;
-    z-index: 60;
+    z-index: 80;
 }
 
 .dark .admin-select2-dropdown.select2-dropdown,
@@ -2371,7 +2406,9 @@ span.flatpickr-weekday {
 /* Compact existing-file preview (replaces the old separate "Preview" side box) */
 .admin-filepond-preview {
     position: relative;
-    display: block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
     border-radius: var(--admin-radius-sm);
     border: 1px solid var(--admin-border);
@@ -2379,13 +2416,23 @@ span.flatpickr-weekday {
 }
 
 .admin-filepond-preview-square {
-    display: inline-block;
+    display: inline-flex;
 }
 
 .admin-filepond-preview-img {
     display: block;
+    width: auto;
+    height: 100%;
+    max-width: 16rem;
+    object-fit: contain;
+    object-position: center;
+}
+
+.admin-filepond-preview-square .admin-filepond-preview-img,
+.admin-filepond-preview.is-circle .admin-filepond-preview-img {
     width: 100%;
     height: 100%;
+    max-width: none;
     object-fit: cover;
 }
 

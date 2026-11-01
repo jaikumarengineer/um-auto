@@ -152,7 +152,7 @@
                 {{ __('Help') }}
             </flux:menu.item>
             <flux:menu.separator />
-            <form method="POST" action="{{ route('logout') }}" class="w-full">
+            <form method="POST" action="{{ route('logout') }}" class="w-full" onsubmit="window.AdminAuth && window.AdminAuth.clear()">
                 @csrf
                 <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" icon:variant="outline" class="w-full text-red-600! dark:text-red-400!">
                     {{ __('Log Out') }}

@@ -5,6 +5,7 @@ namespace Modules\Quality\Providers;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Carbon;
 use Modules\Quality\Console\SendDailyQualityDigest;
+use Modules\Quality\Console\SendSampleQualityEmails;
 use Modules\Quality\Support\QualityAlertCatalog;
 use Nwidart\Modules\Support\ModuleServiceProvider;
 
@@ -27,6 +28,7 @@ class QualityServiceProvider extends ModuleServiceProvider
      */
     protected array $commands = [
         SendDailyQualityDigest::class,
+        SendSampleQualityEmails::class,
     ];
 
     /**

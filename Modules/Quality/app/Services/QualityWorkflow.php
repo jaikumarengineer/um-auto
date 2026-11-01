@@ -14,8 +14,8 @@ use Modules\Quality\Models\PurchaseInvoice;
 use Modules\Quality\Models\PurchaseInvoiceLine;
 use Modules\Quality\Models\PurchaseOrder;
 use Modules\Quality\Models\PurchaseOrderLine;
-use Modules\Quality\Models\SamplingPlan;
 use Modules\Quality\Support\InspectionReadings;
+use Modules\Quality\Support\Ml08SampleQuote;
 use Modules\Quality\Support\Qty;
 
 class QualityWorkflow
@@ -56,6 +56,10 @@ class QualityWorkflow
             }
 
             $order->save();
+
+            if ($creating) {
+                app(RecordApproval::class)->recordCreated($order);
+            }
 
             $kept = [];
 
@@ -178,6 +182,10 @@ class QualityWorkflow
             }
 
             $invoice->save();
+
+            if ($creating) {
+                app(RecordApproval::class)->recordCreated($invoice);
+            }
 
             if ($invoice->wasRecentlyCreated === false) {
                 foreach ($invoice->lines()->with('lots')->get() as $existing) {
@@ -334,31 +342,30 @@ class QualityWorkflow
                 ]);
             }
 
-            $plan = SamplingPlan::forQuantity((float) $lot->qty) ?? $standard->samplingPlan;
-            $sampleSize = (int) ($plan?->sample_size ?: ($header['sample_size'] ?? 1));
-            $sampleSize = max(1, $sampleSize);
+            $classes = [];
+
+            foreach ($standard->characteristics as $index => $characteristic) {
+                $check = $checks[$index] ?? [];
+                $classes[] = InspectionCharacteristic::normalize($check['class'] ?? $characteristic->characteristic_class);
+            }
+
+            $quotes = Ml08SampleQuote::forClasses((float) $lot->qty, $classes);
+
+            if ($existing && (int) $existing->incoming_lot_id === (int) $lot->id) {
+                $existing->loadMissing('samples');
+                $quotes = Ml08SampleQuote::keepSnapshot($quotes, $existing->samples);
+            }
+
+            $headline = Ml08SampleQuote::headline($quotes);
+            $sampleSize = max(1, (int) ($headline['sample_size'] ?? $header['sample_size'] ?? 1));
             $qty = Qty::num($lot->qty);
-            $accepted = array_key_exists('accepted_qty', $header)
+            $acceptedProvided = array_key_exists('accepted_qty', $header);
+            $accepted = $acceptedProvided
                 ? min($qty, max(0, Qty::num($header['accepted_qty'])))
                 : null;
             $supplierDecision = $this->decision($header['supplier_decision'] ?? 'conforming');
             $umacDecision = $this->decision($header['umac_decision'] ?? 'conforming');
-            $result = match (true) {
-                $supplierDecision === 'non_conforming' || $umacDecision === 'non_conforming' => 'fail',
-                $supplierDecision === 'aud' || $umacDecision === 'aud' => 'conditional',
-                default => $header['result'] ?? 'pass',
-            };
-
-            if ($accepted === null) {
-                $rejected = match ($result) {
-                    'fail' => $qty,
-                    'conditional' => min($qty, Qty::num($header['rejected_qty'] ?? 0)),
-                    default => 0.0,
-                };
-                $accepted = Qty::num($qty - $rejected);
-            } else {
-                $rejected = Qty::num($qty - $accepted);
-            }
+            $rejected = $acceptedProvided ? Qty::num($qty - $accepted) : 0.0;
 
             $prepared = [];
             $supplierStatuses = [];
@@ -378,8 +385,10 @@ class QualityWorkflow
                     $supplierSource = [(string) $check['measured']];
                 }
 
-                $supplier = InspectionReadings::pad($supplierSource, $sampleSize);
-                $umac = InspectionReadings::pad($umacSource, $sampleSize);
+                $class = InspectionCharacteristic::normalize($check['class'] ?? $characteristic->characteristic_class);
+                $classSample = max(1, (int) ($quotes[$class]['sample_size'] ?? $sampleSize));
+                $supplier = InspectionReadings::pad($supplierSource, $classSample);
+                $umac = InspectionReadings::pad($umacSource, $classSample);
                 $manual = ! InspectionReadings::hasLimits($limits['min'], $limits['max']);
 
                 $supplierResult = $manual
@@ -390,7 +399,6 @@ class QualityWorkflow
                     : InspectionReadings::status($umac, $limits['min'], $limits['max']);
                 $supplierStatuses[] = $supplierResult;
                 $umacStatuses[] = $umacResult;
-                $class = InspectionCharacteristic::normalize($check['class'] ?? $characteristic->characteristic_class);
 
                 $prepared[] = [
                     'characteristic' => $characteristic,
@@ -405,10 +413,62 @@ class QualityWorkflow
                 ];
             }
 
+            foreach ($quotes as $class => $quote) {
+                $lines = array_values(array_filter(
+                    $prepared,
+                    fn (array $row): bool => $row['class'] === $class,
+                ));
+                $supplierJudge = Ml08SampleQuote::judge(
+                    (int) $quote['sample_size'],
+                    (int) $quote['accept_number'],
+                    $this->classLines($lines, 'supplier'),
+                );
+                $umacJudge = Ml08SampleQuote::judge(
+                    (int) $quote['sample_size'],
+                    (int) $quote['accept_number'],
+                    $this->classLines($lines, 'umac'),
+                );
+                $quotes[$class]['supplier_defectives'] = $supplierJudge['defectives'];
+                $quotes[$class]['umac_defectives'] = $umacJudge['defectives'];
+                $quotes[$class]['supplier_nonconforming_pct'] = $supplierJudge['percent'];
+                $quotes[$class]['umac_nonconforming_pct'] = $umacJudge['percent'];
+                $quotes[$class]['supplier_result'] = $supplierJudge['result'];
+                $quotes[$class]['umac_result'] = $umacJudge['result'];
+            }
+
+            $supplierRejected = collect($quotes)->contains(fn (array $quote): bool => $quote['supplier_result'] === 'reject');
+            $umacRejected = collect($quotes)->contains(fn (array $quote): bool => $quote['umac_result'] === 'reject');
+
+            if ($supplierRejected) {
+                $supplierDecision = 'non_conforming';
+            }
+
+            if ($umacRejected) {
+                $umacDecision = 'non_conforming';
+            }
+
+            $result = match (true) {
+                $supplierDecision === 'non_conforming' || $umacDecision === 'non_conforming' => 'fail',
+                $supplierDecision === 'aud' || $umacDecision === 'aud' => 'conditional',
+                default => $header['result'] ?? 'pass',
+            };
+
+            if (! $acceptedProvided) {
+                $rejected = match ($result) {
+                    'fail' => $qty,
+                    'conditional' => min($qty, Qty::num($header['rejected_qty'] ?? 0)),
+                    default => 0.0,
+                };
+                $accepted = Qty::num($qty - $rejected);
+            }
+
+            $supplierStatus = $supplierRejected ? 'ng' : InspectionReadings::rollup($supplierStatuses);
+            $umacStatus = $umacRejected ? 'ng' : InspectionReadings::rollup($umacStatuses);
+
             $attributes = [
                 'incoming_lot_id' => $lot->id,
                 'inspection_standard_id' => $standard->id,
-                'sampling_plan_id' => $plan?->id,
+                'sampling_plan_id' => $headline['sampling_plan_id'] ?? $standard->sampling_plan_id,
                 'sample_size' => $sampleSize,
                 'inspected_qty' => $qty,
                 'accepted_qty' => $accepted,
@@ -419,8 +479,8 @@ class QualityWorkflow
                 'assembly_name' => trim((string) ($header['assembly_name'] ?? '')) ?: null,
                 'process' => trim((string) ($header['process'] ?? '')) ?: null,
                 'bill_no' => trim((string) ($header['bill_no'] ?? '')) ?: null,
-                'supplier_status' => InspectionReadings::rollup($supplierStatuses),
-                'umac_status' => InspectionReadings::rollup($umacStatuses),
+                'supplier_status' => $supplierStatus,
+                'umac_status' => $umacStatus,
                 'supplier_decision' => $supplierDecision,
                 'umac_decision' => $umacDecision,
                 'inspected_by' => $header['inspected_by'] ?? auth()->id(),
@@ -433,6 +493,7 @@ class QualityWorkflow
                 $previousLotId = $existing->incoming_lot_id;
                 $existing->update($attributes);
                 $existing->results()->delete();
+                $existing->samples()->delete();
                 $report = $existing;
             } else {
                 $report = new InspectionReport([
@@ -441,6 +502,27 @@ class QualityWorkflow
                 ]);
                 app(RecordApproval::class)->stampOnCreate($report);
                 $report->save();
+                app(RecordApproval::class)->recordCreated($report);
+            }
+
+            foreach ($quotes as $class => $quote) {
+                $report->samples()->create([
+                    'characteristic_class' => $class,
+                    'aql' => $quote['aql'],
+                    'lot_min' => $quote['lot_min'],
+                    'lot_max' => $quote['lot_max'],
+                    'sample_size' => $quote['sample_size'],
+                    'sampling_rate' => $quote['sampling_rate'],
+                    'accept_number' => $quote['accept_number'],
+                    'reject_number' => $quote['reject_number'],
+                    'supplier_defectives' => $quote['supplier_defectives'],
+                    'umac_defectives' => $quote['umac_defectives'],
+                    'supplier_nonconforming_pct' => $quote['supplier_nonconforming_pct'],
+                    'umac_nonconforming_pct' => $quote['umac_nonconforming_pct'],
+                    'supplier_result' => $quote['supplier_result'],
+                    'umac_result' => $quote['umac_result'],
+                    'sampling_plan_id' => $quote['sampling_plan_id'],
+                ]);
             }
 
             foreach ($prepared as $row) {
@@ -475,7 +557,7 @@ class QualityWorkflow
                 }
             }
 
-            return $report->fresh(['lot.part', 'standard', 'samplingPlan', 'results']);
+            return $report->fresh(['lot.part', 'standard', 'samplingPlan', 'results', 'samples']);
         });
     }
 
@@ -566,6 +648,21 @@ class QualityWorkflow
         return $normalized;
     }
 
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array{readings: list<mixed>, manual: bool, status: string, min: mixed, max: mixed}>
+     */
+    private function classLines(array $rows, string $side): array
+    {
+        return array_map(fn (array $row): array => [
+            'readings' => $row[$side],
+            'manual' => (bool) $row['manual'],
+            'status' => $row[$side.'_result'],
+            'min' => $row['limits']['min'],
+            'max' => $row['limits']['max'],
+        ], $rows);
+    }
+
     private function storedSideResult(string $status, bool $manual): string
     {
         if ($status === 'empty') {
@@ -604,6 +701,11 @@ class QualityWorkflow
         return app(RecordApproval::class)->reject($order, reason: $reason);
     }
 
+    public function updatePurchaseOrderAcceptedStatus(PurchaseOrder $order, string $status, ?string $reason = null): PurchaseOrder
+    {
+        return app(RecordApproval::class)->updateStatus($order, $status, reason: $reason);
+    }
+
     public function approvePurchaseInvoice(PurchaseInvoice $invoice, ?string $reason = null): PurchaseInvoice
     {
         return app(RecordApproval::class)->approve($invoice, reason: $reason);
@@ -612,6 +714,27 @@ class QualityWorkflow
     public function rejectPurchaseInvoice(PurchaseInvoice $invoice, ?string $reason = null): PurchaseInvoice
     {
         return app(RecordApproval::class)->reject($invoice, reason: $reason);
+    }
+
+    public function updatePurchaseInvoiceAcceptedStatus(PurchaseInvoice $invoice, string $status, ?string $reason = null): PurchaseInvoice
+    {
+        return app(RecordApproval::class)->updateStatus($invoice, $status, reason: $reason);
+    }
+
+    public function updateInspectionReportAcceptedStatus(InspectionReport $report, string $status, ?string $reason = null): InspectionReport
+    {
+        $report = app(RecordApproval::class)->updateStatus($report, $status, reason: $reason);
+
+        if ($status === RecordApproval::APPROVED) {
+            $report->verified_by = $report->approved_by;
+            $report->save();
+        }
+
+        if ($report->lot) {
+            $this->refreshLotStatus($report->lot);
+        }
+
+        return $report->fresh(['lot.part', 'standard', 'samplingPlan', 'results', 'creator', 'approver']);
     }
 
     public function approveInspectionReport(InspectionReport $report, ?string $reason = null): InspectionReport

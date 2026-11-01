@@ -1,11 +1,84 @@
+@php
+    $siteName = (string) (
+        setting('site_name', null, 'general')
+        ?: setting('site_title', null, 'general')
+        ?: setting('site_title', null, 'website')
+        ?: config('app.name')
+    );
+
+    $metaTitle = (string) (
+        setting('meta_title', null, 'general')
+        ?: setting('site_title', null, 'general')
+        ?: $siteName
+    );
+
+    $metaDescription = (string) (
+        setting('meta_description', null, 'general')
+        ?: setting('site_description', null, 'general')
+        ?: setting('meta_description', null, 'website')
+        ?: ''
+    );
+
+    $metaTags = setting_json_decode(setting('meta_tags', [], 'general'));
+    $metaKeywords = collect($metaTags)
+        ->map(fn ($tag) => is_array($tag) ? ($tag['value'] ?? $tag['name'] ?? null) : $tag)
+        ->filter(fn ($tag) => filled($tag))
+        ->implode(', ');
+
+    $documentTitle = filled($title ?? null)
+        ? trim((string) $title).' · '.$siteName
+        : $metaTitle;
+
+    $faviconUrl = media_url(
+        setting('site_favicon', null, 'general')
+            ?: setting('favicon_path', null, 'website')
+    );
+
+    $ogImageUrl = media_url(setting('meta_os_image', null, 'general'));
+    $canonicalUrl = url()->current();
+@endphp
+
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<title>{{ $title ?? config('app.name') }}</title>
+<title>{{ $documentTitle }}</title>
 
-<link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+@if ($metaDescription !== '')
+    <meta name="description" content="{{ $metaDescription }}">
+@endif
+
+@if ($metaKeywords !== '')
+    <meta name="keywords" content="{{ $metaKeywords }}">
+@endif
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ $siteName }}">
+<meta property="og:title" content="{{ $documentTitle }}">
+<meta property="og:url" content="{{ $canonicalUrl }}">
+@if ($metaDescription !== '')
+    <meta property="og:description" content="{{ $metaDescription }}">
+@endif
+@if ($ogImageUrl)
+    <meta property="og:image" content="{{ $ogImageUrl }}">
+@endif
+
+<meta name="twitter:card" content="{{ $ogImageUrl ? 'summary_large_image' : 'summary' }}">
+<meta name="twitter:title" content="{{ $documentTitle }}">
+@if ($metaDescription !== '')
+    <meta name="twitter:description" content="{{ $metaDescription }}">
+@endif
+@if ($ogImageUrl)
+    <meta name="twitter:image" content="{{ $ogImageUrl }}">
+@endif
+
+@if ($faviconUrl)
+    <link rel="icon" href="{{ $faviconUrl }}" sizes="any">
+    <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
+@else
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+@endif
 
 <link rel="preconnect" href="https://fonts.bunny.net">
 <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700|lato:400,500,700|inter:400,500,600,700|nunito:400,500,600,700|dm-sans:400,500,600,700|source-sans-3:400,500,600,700" rel="stylesheet" />

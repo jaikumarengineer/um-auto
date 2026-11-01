@@ -5,7 +5,7 @@
     <div class="rounded-xl border border-zinc-200 bg-[var(--admin-surface)] px-3 py-2 dark:border-zinc-700">
         <div class="flex flex-wrap items-center gap-2">
             @if (! empty($node['url']))
-                <a href="{{ $node['url'] }}" class="text-sm font-medium text-primary hover:underline" @if (! str_contains($node['url'], '/format')) wire:navigate @endif>
+                <a href="{{ $node['url'] }}" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-primary hover:underline">
                     {{ $node['title'] }}
                 </a>
             @else

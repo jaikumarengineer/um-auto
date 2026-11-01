@@ -6,9 +6,12 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Quality\Concerns\HasRecordActivities;
 
 class InspectionReport extends Model
 {
+    use HasRecordActivities;
+
     protected $fillable = [
         'report_number',
         'incoming_lot_id',
@@ -78,6 +81,23 @@ class InspectionReport extends Model
     public function results(): HasMany
     {
         return $this->hasMany(InspectionResult::class);
+    }
+
+    public function samples(): HasMany
+    {
+        return $this->hasMany(InspectionReportSample::class)
+            ->orderByRaw("case characteristic_class when 'C' then 1 when 'M' then 2 when 'Mi' then 3 else 4 end");
+    }
+
+    public function sampleSizeForClass(?string $class): int
+    {
+        $row = $this->samples->firstWhere('characteristic_class', $class);
+
+        if ($row) {
+            return max(1, (int) $row->sample_size);
+        }
+
+        return max(1, (int) $this->sample_size);
     }
 
     public function inspector(): BelongsTo

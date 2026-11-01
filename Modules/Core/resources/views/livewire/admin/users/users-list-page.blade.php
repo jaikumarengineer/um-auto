@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesModule;
 use App\Concerns\NotifiesWithSweetAlert;
 use App\Concerns\WithSorting;
 use App\Models\User;
@@ -8,9 +9,12 @@ use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
 new #[Layout('core::layouts.app')] class extends Component {
+    use AuthorizesModule;
     use NotifiesWithSweetAlert;
     use WithPagination;
     use WithSorting;
+
+    private const MODULE = 'users';
 
     public string $search = '';
     public string $roleFilter = '';
@@ -48,6 +52,8 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function deleteUser(int $id): void
     {
+        $this->authorizeModule(self::MODULE, 'delete');
+
         $user = User::findOrFail($id);
 
         if ($user->id === auth()->id()) {
@@ -68,6 +74,8 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     public function toggleStatus(int $id): void
     {
+        $this->authorizeModule(self::MODULE, 'edit');
+
         $user = User::findOrFail($id);
         $user->update(['is_active' => ! $user->is_active]);
     }
@@ -93,7 +101,13 @@ new #[Layout('core::layouts.app')] class extends Component {
                 ->when($this->statusFilter !== '', fn ($q) => $q->where('is_active', (bool) $this->statusFilter))
         )->paginate($this->perPage);
 
-        return compact('users');
+        return [
+            'users' => $users,
+            'canView' => module_can(self::MODULE, 'view'),
+            'canAdd' => module_can(self::MODULE, 'add'),
+            'canEdit' => module_can(self::MODULE, 'edit'),
+            'canDelete' => module_can(self::MODULE, 'delete'),
+        ];
     }
 }; ?>
 
@@ -101,16 +115,28 @@ new #[Layout('core::layouts.app')] class extends Component {
     <x-core::ui.page-header
         class="admin-fade-in"
         :title="__('Users')"
-        :subtitle="__('Manage all registered users.')"
+        :subtitle="__('Showing the list of users')"
         :breadcrumbs="[
             ['label' => __('Dashboard'), 'route' => 'admin::dashboard'],
             ['label' => __('Users')],
         ]"
     >
         <x-slot:actions>
-            <flux:button icon="plus" variant="primary" :href="route('admin::users.create')" wire:navigate>
-                {{ __('Add User') }}
-            </flux:button>
+            @if (auth()->user()?->isUnrestrictedAdmin())
+                <flux:button
+                    icon="shield-check"
+                    variant="ghost"
+                    :href="route('admin::users.roles.index')"
+                    wire:navigate
+                >
+                    {{ __('Roles & Permissions') }}
+                </flux:button>
+            @endif
+            @if ($canAdd)
+                <flux:button icon="plus" variant="primary" :href="route('admin::users.create')" wire:navigate>
+                    {{ __('Add User') }}
+                </flux:button>
+            @endif
         </x-slot:actions>
     </x-core::ui.page-header>
 
@@ -167,7 +193,7 @@ new #[Layout('core::layouts.app')] class extends Component {
                     <x-core::ui.sortable-th column="email" :label="__('Email')" />
                     <x-core::ui.sortable-th column="user_type" :label="__('Role')" />
                     <x-core::ui.sortable-th column="is_active" :label="__('Status')" align="center" />
-                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Actions') }}</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-zinc-500 dark:text-zinc-400">{{ __('Actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -207,7 +233,19 @@ new #[Layout('core::layouts.app')] class extends Component {
                             </span>
                         </td>
                         <td class="px-4 py-3 text-center">
-                            <button wire:click="toggleStatus({{ $user->id }})" class="focus:outline-none" title="Toggle status">
+                            @if ($canEdit)
+                                <button wire:click="toggleStatus({{ $user->id }})" class="focus:outline-none" title="Toggle status">
+                                    @if($user->is_active)
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                                            <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span> {{ __('Active') }}
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400">
+                                            <span class="h-1.5 w-1.5 rounded-full bg-zinc-400"></span> {{ __('Inactive') }}
+                                        </span>
+                                    @endif
+                                </button>
+                            @else
                                 @if($user->is_active)
                                     <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/40 dark:text-green-300">
                                         <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span> {{ __('Active') }}
@@ -217,43 +255,51 @@ new #[Layout('core::layouts.app')] class extends Component {
                                         <span class="h-1.5 w-1.5 rounded-full bg-zinc-400"></span> {{ __('Inactive') }}
                                     </span>
                                 @endif
-                            </button>
+                            @endif
                         </td>
                         <td class="px-4 py-3 text-right">
                             <div class="flex items-center justify-end">
-                                <x-core::ui.actions-menu>
-                                    <flux:menu.item
-                                        icon="pencil-square"
-                                        icon:variant="outline"
-                                        :href="route('admin::users.edit', $user->id)"
-                                        wire:navigate
-                                    >
-                                        {{ __('Edit') }}
-                                    </flux:menu.item>
+                                @if ($canEdit || $canDelete)
+                                    <x-core::ui.actions-menu>
+                                        @if ($canEdit)
+                                            <flux:menu.item
+                                                icon="pencil-square"
+                                                icon:variant="outline"
+                                                :href="route('admin::users.edit', $user->id)"
+                                                wire:navigate
+                                            >
+                                                {{ __('Edit') }}
+                                            </flux:menu.item>
 
-                                    <flux:menu.item
-                                        as="button"
-                                        type="button"
-                                        :icon="$user->is_active ? 'no-symbol' : 'check-circle'"
-                                        icon:variant="outline"
-                                        wire:click="toggleStatus({{ $user->id }})"
-                                    >
-                                        {{ $user->is_active ? __('Deactivate') : __('Activate') }}
-                                    </flux:menu.item>
+                                            <flux:menu.item
+                                                as="button"
+                                                type="button"
+                                                :icon="$user->is_active ? 'no-symbol' : 'check-circle'"
+                                                icon:variant="outline"
+                                                wire:click="toggleStatus({{ $user->id }})"
+                                            >
+                                                {{ $user->is_active ? __('Deactivate') : __('Activate') }}
+                                            </flux:menu.item>
+                                        @endif
 
-                                    <flux:menu.separator />
+                                        @if ($canDelete)
+                                            @if ($canEdit)
+                                                <flux:menu.separator />
+                                            @endif
 
-                                    <x-core::ui.confirm-button
-                                        as="menu-item"
-                                        method="deleteUser"
-                                        :params="[$user->id]"
-                                        :title="__('Are you sure?')"
-                                        :text="__('Once deleted, you will not be able to recover this record!')"
-                                        :confirm-text="__('Yes, delete it!')"
-                                        :cancel-text="__('Cancel')"
-                                        :menu-label="__('Delete')"
-                                    />
-                                </x-core::ui.actions-menu>
+                                            <x-core::ui.confirm-button
+                                                as="menu-item"
+                                                method="deleteUser"
+                                                :params="[$user->id]"
+                                                :title="__('Are you sure?')"
+                                                :text="__('Once deleted, you will not be able to recover this record!')"
+                                                :confirm-text="__('Yes, delete it!')"
+                                                :cancel-text="__('Cancel')"
+                                                :menu-label="__('Delete')"
+                                            />
+                                        @endif
+                                    </x-core::ui.actions-menu>
+                                @endif
                             </div>
                         </td>
                     </tr>

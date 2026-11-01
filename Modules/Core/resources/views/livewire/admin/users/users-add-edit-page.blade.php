@@ -1,5 +1,7 @@
 <?php
 
+use App\Concerns\ManagesGrantedPermissions;
+use App\Models\Role;
 use App\Models\User;
 use App\Support\PermissionCatalog;
 use Illuminate\Support\Facades\Hash;
@@ -8,8 +10,10 @@ use Illuminate\Validation\Rules\Password;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Modules\Quality\Support\QualityAlertCatalog;
+use Spatie\Permission\Models\Permission;
 
 new #[Layout('core::layouts.app')] class extends Component {
+    use ManagesGrantedPermissions;
 
     public ?int $userId = null;
 
@@ -76,8 +80,21 @@ new #[Layout('core::layouts.app')] class extends Component {
      */
     public array $grantedPermissions = [];
 
+    /**
+     * Draft permissions while the customize flyout is open.
+     *
+     * @var list<string>
+     */
+    public array $draftPermissions = [];
+
+    public string $copyFromRole = '';
+
+    public bool $showPermissionsFlyout = false;
+
     public function mount(?int $user_id = null): void
     {
+        PermissionCatalog::ensurePermissionsExist();
+
         $this->hydrateAlertGroup('departments', ['all'], array_keys(QualityAlertCatalog::DEPARTMENTS));
         $this->hydrateAlertGroup('statuses', ['all'], array_keys(QualityAlertCatalog::STATUSES));
         $this->hydrateAlertGroup('reports', ['all'], array_keys(QualityAlertCatalog::REPORTS));
@@ -120,12 +137,97 @@ new #[Layout('core::layouts.app')] class extends Component {
 
         if ($value === 'admin') {
             $this->grantedPermissions = [];
+            $this->copyFromRole = '';
+            $this->closePermissionsFlyout();
 
             return;
         }
 
+        $this->copyFromRole = '';
         $role = PermissionCatalog::roleForUserType($value) ?? $value;
         $this->resetGrantedPermissionsForRole($role);
+    }
+
+    public function updatedCopyFromRole($value): void
+    {
+        $value = (string) $value;
+
+        if ($value === '' || $this->user_type === 'admin') {
+            return;
+        }
+
+        $this->setGrantedPermissions(PermissionCatalog::permissionsForRole($value));
+    }
+
+    public function openPermissionsFlyout(): void
+    {
+        if ($this->user_type === 'admin') {
+            return;
+        }
+
+        $this->draftPermissions = $this->grantedPermissions;
+        $this->showPermissionsFlyout = true;
+    }
+
+    public function closePermissionsFlyout(): void
+    {
+        $this->showPermissionsFlyout = false;
+        $this->draftPermissions = [];
+    }
+
+    public function savePermissionsFlyout(): void
+    {
+        $this->setGrantedPermissions($this->draftPermissions);
+        $this->showPermissionsFlyout = false;
+        $this->draftPermissions = [];
+    }
+
+    public function selectAllDraftPermissions(): void
+    {
+        $this->draftPermissions = PermissionCatalog::allPermissionNames();
+    }
+
+    public function clearDraftPermissions(): void
+    {
+        $this->draftPermissions = [];
+    }
+
+    public function toggleDraftPermission(string $name): void
+    {
+        if (! in_array($name, PermissionCatalog::allPermissionNames(), true)) {
+            return;
+        }
+
+        $current = collect($this->draftPermissions);
+
+        if ($current->contains($name)) {
+            $this->draftPermissions = $current
+                ->reject(fn (string $item) => $item === $name)
+                ->values()
+                ->all();
+
+            return;
+        }
+
+        $this->draftPermissions = $current->push($name)->unique()->values()->all();
+    }
+
+    public function toggleDraftModule(string $module): void
+    {
+        $names = collect(PermissionCatalog::actions())
+            ->map(fn (string $action) => PermissionCatalog::name($module, $action))
+            ->all();
+
+        $current = collect($this->draftPermissions);
+        $allOn = collect($names)->every(fn (string $name) => $current->contains($name));
+
+        if ($allOn) {
+            $this->draftPermissions = $current->reject(fn (string $name) => in_array($name, $names, true))->values()->all();
+
+            return;
+        }
+
+        $this->draftPermissions = $current->merge($names)->unique()->values()->all();
     }
 
     public function updatedName(): void
@@ -372,7 +474,7 @@ new #[Layout('core::layouts.app')] class extends Component {
 
     private function resetGrantedPermissionsForRole(string $role): void
     {
-        $this->grantedPermissions = PermissionCatalog::defaultsFor($role);
+        $this->setGrantedPermissions(PermissionCatalog::permissionsForRole($role));
     }
 
     private function loadGrantedPermissionsFromUser(User $user): void
@@ -386,35 +488,25 @@ new #[Layout('core::layouts.app')] class extends Component {
         $granted = [];
 
         foreach (PermissionCatalog::allPermissionNames() as $name) {
-            [$module, $action] = $this->splitPermissionName($name);
-
-            if ($user->canModule($module, $action)) {
+            if ($user->hasPermissionTo($name)) {
                 $granted[] = $name;
             }
         }
 
-        $this->grantedPermissions = $granted;
-    }
-
-    /**
-     * @return array{0: string, 1: string}
-     */
-    private function splitPermissionName(string $name): array
-    {
-        $parts = explode('.', $name);
-        $action = array_pop($parts);
-
-        return [implode('.', $parts), $action];
+        $this->setGrantedPermissions($granted);
     }
 
     private function syncSelectedPermissions(User $user): void
     {
         if ($user->isUnrestrictedAdmin()) {
+            Role::findOrCreate('admin', 'web');
             $user->syncRoles(['admin']);
             $user->syncPermissions([]);
 
             return;
         }
+
+        PermissionCatalog::ensurePermissionsExist();
 
         $names = array_values(array_intersect(
             PermissionCatalog::allPermissionNames(),
@@ -422,16 +514,38 @@ new #[Layout('core::layouts.app')] class extends Component {
         ));
 
         foreach ($names as $name) {
-            \Spatie\Permission\Models\Permission::findOrCreate($name, 'web');
+            Permission::findOrCreate($name, 'web');
         }
 
         $role = PermissionCatalog::roleForUserType((string) $user->user_type);
         if ($role) {
-            \Spatie\Permission\Models\Role::findOrCreate($role, 'web');
+            Role::findOrCreate($role, 'web');
             $user->syncRoles([$role]);
         }
 
         $user->syncPermissions($names);
+    }
+
+    public function with(): array
+    {
+        $copyRoleOptions = Role::query()
+            ->editable()
+            ->active()
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(fn (Role $role) => [$role->name => $role->displayName()])
+            ->all();
+
+        $permissionRoleLabel = $copyRoleOptions[$this->copyFromRole]
+            ?? (User::assignableRoles()[$this->user_type] ?? str($this->user_type)->title()->toString());
+
+        $totalPermissions = count(PermissionCatalog::allPermissionNames());
+        $selectedPermissions = count(array_intersect(
+            PermissionCatalog::allPermissionNames(),
+            $this->grantedPermissions,
+        ));
+
+        return compact('copyRoleOptions', 'permissionRoleLabel', 'totalPermissions', 'selectedPermissions');
     }
 }; ?>
 
@@ -554,41 +668,38 @@ new #[Layout('core::layouts.app')] class extends Component {
 
         @if ($user_type !== 'admin')
             <div class="admin-card overflow-hidden">
-                <div class="border-b border-zinc-200 px-6 py-4 dark:border-zinc-700">
+                <div class="space-y-2 border-b border-zinc-200 px-6 py-6 sm:px-8 dark:border-zinc-700">
                     <flux:heading size="lg">{{ __('Roles & Permission') }}</flux:heading>
                     <flux:subheading>
-                        {{ __('Approval by Admin or Manager. Manager starts with full operational scopes; Admin can change the scope. Settings stay Admin-only.') }}
+                        {{ __('Pick a role template for defaults, then customize individual permissions. Settings stay Admin-only.') }}
                     </flux:subheading>
                 </div>
-                <div class="overflow-x-auto px-6 py-4">
-                    <table class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-700">
-                        <thead>
-                            <tr>
-                                <th class="py-2 pr-4 text-left font-semibold text-zinc-500">{{ __('Module') }}</th>
-                                @foreach (['access' => __('Access'), 'view' => __('View'), 'add' => __('Add'), 'edit' => __('Edit'), 'delete' => __('Delete')] as $action => $label)
-                                    <th class="px-2 py-2 text-center font-semibold text-zinc-500">{{ $label }}</th>
+                <div class="space-y-4 px-6 py-6 sm:px-8">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <div class="min-w-0 flex-1">
+                            <flux:select wire:model.live="copyFromRole" :label="__('Permission template')">
+                                <flux:select.option value="">{{ __('Use selected role defaults') }}</flux:select.option>
+                                @foreach ($copyRoleOptions as $value => $label)
+                                    <flux:select.option :value="$value">{{ $label }}</flux:select.option>
                                 @endforeach
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                            @foreach (\App\Support\PermissionCatalog::modules() as $module => $label)
-                                <tr wire:key="perm-{{ $module }}">
-                                    <td class="py-2 pr-4">{{ __($label) }}</td>
-                                    @foreach (\App\Support\PermissionCatalog::actions() as $action)
-                                        @php($permission = \App\Support\PermissionCatalog::name($module, $action))
-                                        <td class="px-2 py-2 text-center">
-                                            <input
-                                                type="checkbox"
-                                                value="{{ $permission }}"
-                                                wire:model="grantedPermissions"
-                                                class="size-4 rounded border-zinc-300 text-[var(--admin-primary)] focus:ring-[var(--admin-primary)]"
-                                            >
-                                        </td>
-                                    @endforeach
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                            </flux:select>
+                        </div>
+                        <flux:button
+                            type="button"
+                            variant="primary"
+                            icon="adjustments-horizontal"
+                            wire:click="openPermissionsFlyout"
+                            class="shrink-0"
+                        >
+                            {{ __('Customize') }}
+                        </flux:button>
+                    </div>
+                    <p class="text-sm text-zinc-500">
+                        {{ __(':selected of :total permissions selected', [
+                            'selected' => $selectedPermissions,
+                            'total' => $totalPermissions,
+                        ]) }}
+                    </p>
                 </div>
             </div>
         @endif
@@ -673,4 +784,8 @@ new #[Layout('core::layouts.app')] class extends Component {
             </div>
         </div>
     </form>
+
+    @if ($user_type !== 'admin')
+        <x-core::users.permission-flyout :title="$permissionRoleLabel" />
+    @endif
 </div>

@@ -4,6 +4,7 @@
     'align' => 'left',
     'sortBy' => null,
     'sortDirection' => 'asc',
+    'method' => 'sort',
 ])
 
 @php
@@ -21,12 +22,12 @@
 @endphp
 
 <th {{ $attributes->class([
-    'px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400',
+    'px-4 py-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400',
     $alignClass,
 ]) }}>
     <button
         type="button"
-        wire:click="sort('{{ $column }}')"
+        wire:click="{{ $method }}('{{ $column }}')"
         @class([
             'inline-flex items-center gap-1 transition-colors hover:text-primary',
             $justifyClass,

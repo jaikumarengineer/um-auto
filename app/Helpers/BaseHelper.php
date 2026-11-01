@@ -6,10 +6,14 @@ use Illuminate\Support\Str;
 if (! function_exists('generateUserName')) {
     function generateUserName($name): string
     {
-        $baseUsername = Str::slug($name); // e.g., "John Doe" -> "john-doe"
-        do {
-            $username = $baseUsername.rand(10000000, 99999999);
-        } while (User::where('username', $username)->exists());
+        $baseUsername = Str::slug($name, '') ?: 'user'; // e.g., "Jai" -> "jai"
+        $username = $baseUsername;
+        $suffix = 1;
+
+        // "jai" taken -> "jai1", "jai2", ...
+        while (User::where('username', $username)->exists()) {
+            $username = $baseUsername.$suffix++;
+        }
 
         return $username;
     }
@@ -80,6 +84,23 @@ if (! function_exists('admin_breadcrumb_home')) {
             'label' => $user?->isMaster() ? __('Dashboard') : __('Home'),
             'route' => $user?->adminHomeRoute() ?? 'admin::dashboard',
         ];
+    }
+}
+
+if (! function_exists('module_can')) {
+    /**
+     * Gate check against a PermissionCatalog module + action.
+     */
+    function module_can(string $module, string $action = 'access'): bool
+    {
+        return auth()->user()?->canModule($module, $action) ?? false;
+    }
+}
+
+if (! function_exists('module_permission')) {
+    function module_permission(string $module, string $action = 'access'): string
+    {
+        return \App\Support\PermissionCatalog::name($module, $action);
     }
 }
 

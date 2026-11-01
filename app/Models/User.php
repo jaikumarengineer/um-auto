@@ -153,6 +153,12 @@ class User extends Authenticatable
         return trim("{$this->name} {$this->last_name}");
     }
 
+    public function roleLabel(): string
+    {
+        return self::allRoleLabels()[$this->user_type]
+            ?? (string) str((string) $this->user_type)->replace('_', ' ')->title();
+    }
+
     public function getAvatarUrlAttribute()
     {
         if ($url = media_url($this->image)) {
@@ -235,7 +241,11 @@ class User extends Authenticatable
             return true;
         }
 
-        return $this->can(PermissionCatalog::name($module, $action));
+        $permission = PermissionCatalog::name($module, $action);
+
+        // Incoming, purchase, and manager users follow the role matrix.
+        // A direct grant can add a permission. It cannot hide one the role allows.
+        return $this->hasPermissionTo($permission);
     }
 
     public function canAnyModule(array $modules, string $action = 'access'): bool
@@ -277,12 +287,10 @@ class User extends Authenticatable
         }
 
         try {
-            \Spatie\Permission\Models\Role::findOrCreate($role, 'web');
+            Role::findOrCreate($role, 'web');
 
             if ($forcePermissions && $role !== 'admin') {
-                foreach (PermissionCatalog::defaultsFor($role) as $permission) {
-                    \Spatie\Permission\Models\Permission::findOrCreate($permission, 'web');
-                }
+                PermissionCatalog::ensurePermissionsExist();
             }
 
             $this->syncRoles([$role]);
@@ -294,7 +302,7 @@ class User extends Authenticatable
             }
 
             if ($forcePermissions) {
-                $this->syncPermissions(PermissionCatalog::defaultsFor($role));
+                $this->syncPermissions(PermissionCatalog::permissionsForRole($role));
             }
         } catch (\Throwable) {
             // Ignore when permission tables are unavailable.

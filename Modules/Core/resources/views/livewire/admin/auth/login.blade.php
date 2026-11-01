@@ -40,7 +40,13 @@ new #[Layout(name: 'core::components.layouts.admin.auth')] class extends Compone
         RateLimiter::clear($this->throttleKey());
         Session::regenerate();
 
-        $this->redirectIntended(default: route(auth()->user()->adminHomeRoute(), absolute: false), navigate: true);
+        $user = auth()->user();
+        $home = route($user->adminHomeRoute(), absolute: false);
+        $this->js(
+            'window.AdminAuth && window.AdminAuth.stamp('.json_encode((string) $user->id).', '.json_encode($home).')'
+        );
+
+        $this->redirectIntended(default: $home, navigate: true);
     }
 
     /**

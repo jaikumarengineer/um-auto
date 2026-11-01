@@ -22,6 +22,7 @@ it('saves a purchase order after adding and removing a blank line', function () 
         'name' => 'Flange bolt M10 x 55',
         'uom' => 'PCS',
         'is_active' => true,
+        'vendor_id' => $vendor->id,
     ]);
 
     Volt::test('admin.quality.purchase.order-form-page')

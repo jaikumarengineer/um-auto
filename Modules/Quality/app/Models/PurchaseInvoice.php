@@ -7,10 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Modules\Quality\Concerns\HasRecordActivities;
 use Modules\Quality\Support\Qty;
 
 class PurchaseInvoice extends Model
 {
+    use HasRecordActivities;
+
     protected $fillable = [
         'invoice_number',
         'purchase_order_id',

@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\AuthorizesModule;
 use App\Concerns\NotifiesWithSweetAlert;
 use App\Services\RecordApproval;
 use Illuminate\Validation\ValidationException;
@@ -12,15 +13,24 @@ use Modules\Quality\Support\InspectionReadings;
 use Modules\Quality\Support\Qty;
 
 new #[Layout('core::layouts.app')] class extends Component {
+    use AuthorizesModule;
     use NotifiesWithSweetAlert;
+
+    private const MODULE = 'quality.incoming.reports';
 
     public InspectionReport $report;
 
     public string $rejectionReason = '';
 
+    public bool $showAcceptedStatusModal = false;
+
+    public string $acceptedStatus = RecordApproval::PENDING;
+
+    public string $acceptedStatusReason = '';
+
     public function deleteReport(QualityWorkflow $workflow): void
     {
-        abort_unless(auth()->user()?->isMaster(), 403);
+        $this->authorizeModule(self::MODULE, 'delete');
 
         $workflow->deleteInspectionReport($this->report);
 
@@ -48,6 +58,37 @@ new #[Layout('core::layouts.app')] class extends Component {
         }
     }
 
+    public function openAcceptedStatus(): void
+    {
+        abort_unless(auth()->user()?->canModule('quality.approvals', 'edit'), 403);
+
+        $this->acceptedStatus = (string) ($this->report->approval_status ?: RecordApproval::PENDING);
+        $this->acceptedStatusReason = (string) ($this->report->rejection_reason ?? '');
+        $this->showAcceptedStatusModal = true;
+    }
+
+    public function saveAcceptedStatus(): void
+    {
+        abort_unless(auth()->user()?->canModule('quality.approvals', 'edit'), 403);
+
+        $this->validate(array_merge(
+            RecordApproval::statusValidationRules('acceptedStatus'),
+            ['acceptedStatusReason' => ['nullable', 'string', 'max:2000']],
+        ));
+
+        try {
+            $this->report = app(QualityWorkflow::class)->updateInspectionReportAcceptedStatus(
+                $this->report,
+                $this->acceptedStatus,
+                $this->acceptedStatusReason ?: null,
+            );
+            $this->showAcceptedStatusModal = false;
+            $this->notifySuccess(__('Accepted status updated.'));
+        } catch (ValidationException $exception) {
+            $this->notifyError($exception->validator->errors()->first() ?: __('Could not update accepted status.'));
+        }
+    }
+
     public function mount(InspectionReport $report): void
     {
         $this->report = $report->load([
@@ -55,25 +96,33 @@ new #[Layout('core::layouts.app')] class extends Component {
             'lot.vendor',
             'standard.characteristics',
             'samplingPlan',
+            'samples',
             'results.characteristic',
             'inspector',
             'verifier',
             'creator',
             'approver',
+            'activities.actor',
         ]);
     }
 
     public function with(): array
     {
         return [
-            'canApprove' => auth()->user()?->canModule('quality.approvals', 'edit') ?? false,
-            'isPending' => ($this->report->approval_status ?? RecordApproval::APPROVED) === RecordApproval::PENDING,
+            'canEdit' => module_can(self::MODULE, 'edit'),
+            'canDelete' => module_can(self::MODULE, 'delete'),
+            'canApprove' => module_can('quality.approvals', 'edit'),
+            'isPending' => app(RecordApproval::class)->isAwaitingDecision($this->report),
+            'acceptedStatusLabels' => RecordApproval::statusLabels(),
+            'activities' => $this->report->activities()->with('actor')->latest('id')->get(),
         ];
     }
 
     public function sampleCount(): int
     {
-        return max(1, (int) $this->report->sample_size);
+        $fromClasses = (int) $this->report->samples->max('sample_size');
+
+        return max(1, $fromClasses, (int) $this->report->sample_size);
     }
 
     public function hasReadings(): bool
@@ -165,26 +214,68 @@ new #[Layout('core::layouts.app')] class extends Component {
             <flux:button size="sm" icon="arrow-down-tray" :href="route('admin::quality.incoming.reports.pdf', $report)">{{ __('Generate PDF') }}</flux:button>
             <flux:button size="sm" icon="arrow-down-tray" :href="route('admin::quality.incoming.reports.excel', $report)">{{ __('Generate Excel') }}</flux:button>
             --}}
-            @if (auth()->user()?->isMaster())
+            @if ($canEdit)
                 <flux:button size="sm" icon="pencil-square" :href="route('admin::quality.incoming.reports.edit', $report)" wire:navigate>{{ __('Edit') }}</flux:button>
+            @endif
+            @if ($canDelete)
                 <x-core::ui.confirm-button method="deleteReport" />
             @endif
-            <x-quality::status-pill :status="$report->approval_status ?? 'approved'" />
+            <div class="flex items-center gap-1.5">
+                <x-quality::status-pill :status="$report->approval_status ?? 'approved'" />
+                @if ($canApprove)
+                    <button
+                        type="button"
+                        class="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
+                        wire:click="openAcceptedStatus"
+                        title="{{ __('Edit accepted status') }}"
+                    >
+                        <flux:icon name="pencil-square" class="size-4" />
+                    </button>
+                @endif
+            </div>
             <x-quality::status-pill :status="$report->result" />
         </x-slot:actions>
     </x-core::ui.page-header>
 
     @if ($canApprove && $isPending)
         <div class="admin-card mb-4 space-y-3 p-4">
-            <p class="text-sm font-semibold">{{ __('Approval by Admin or Manager') }}</p>
+            <p class="text-sm font-semibold">{{ __('Accepted Status') }}</p>
             <p class="text-sm text-zinc-500">{{ __('Created by :name', ['name' => $report->creator?->full_name ?: __('Unknown')]) }}</p>
             <flux:textarea wire:model="rejectionReason" :label="__('Rejection reason (optional)')" rows="2" />
             <div class="flex flex-wrap gap-2">
                 <flux:button variant="primary" wire:click="approve">{{ __('Approve') }}</flux:button>
                 <flux:button variant="danger" wire:click="reject">{{ __('Reject') }}</flux:button>
+                <flux:button variant="ghost" wire:click="openAcceptedStatus">{{ __('Set status…') }}</flux:button>
             </div>
         </div>
+    @elseif ($report->approver)
+        <div class="admin-card mb-4 p-4">
+            <p class="text-sm text-zinc-500">
+                {{ __('Decided by :name on :date', [
+                    'name' => $report->approver->full_name,
+                    'date' => $report->approved_at?->format('d M Y H:i') ?? '—',
+                ]) }}
+            </p>
+        </div>
     @endif
+
+    <x-quality::activity-timeline class="mb-4" :activities="$activities" />
+
+    <flux:modal wire:model="showAcceptedStatusModal" class="max-w-md">
+        <div class="space-y-4">
+            <flux:heading size="lg">{{ __('Edit Accepted Status') }}</flux:heading>
+            <flux:select wire:model="acceptedStatus" :label="__('Accepted Status')">
+                @foreach ($acceptedStatusLabels as $value => $label)
+                    <flux:select.option :value="$value">{{ $label }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            <flux:textarea wire:model="acceptedStatusReason" :label="__('Reason (optional)')" rows="3" />
+            <div class="flex justify-end gap-2">
+                <flux:button variant="ghost" wire:click="$set('showAcceptedStatusModal', false)">{{ __('Cancel') }}</flux:button>
+                <flux:button variant="primary" wire:click="saveAcceptedStatus">{{ __('Save') }}</flux:button>
+            </div>
+        </div>
+    </flux:modal>
 
     <div class="space-y-4">
         <div class="overflow-x-auto rounded-lg border border-zinc-300 bg-white text-zinc-900">
@@ -228,8 +319,10 @@ new #[Layout('core::layouts.app')] class extends Component {
                         <th>{{ __('SAMPLE SIZE') }}</th>
                         <td class="iir-fixed" colspan="3">
                             {{ $report->sample_size }}
-                            @if ($report->samplingPlan)
-                                <span class="iir-note">{{ $report->samplingPlan->code }} · {{ __('lot') }} {{ $report->samplingPlan->bandLabel() }}</span>
+                            @if ($report->samples->isNotEmpty())
+                                <span class="iir-note">{{ \Modules\Quality\Support\Ml08SampleQuote::summary(\Modules\Quality\Support\Ml08SampleQuote::fromSnapshot($report->samples)) }}</span>
+                            @elseif ($report->samplingPlan)
+                                <span class="iir-note">{{ __('AQL') }} {{ $report->samplingPlan->aqlLabel() }} · {{ __('lot') }} {{ $report->samplingPlan->bandLabel() }}</span>
                             @endif
                         </td>
                     </tr>
@@ -248,6 +341,45 @@ new #[Layout('core::layouts.app')] class extends Component {
                 </tbody>
             </table>
         </div>
+
+        @if ($report->samples->isNotEmpty())
+            <div class="overflow-x-auto rounded-lg border border-zinc-300 bg-white text-zinc-900">
+                <table class="iir-sheet" id="sample-classes">
+                    <thead>
+                        <tr>
+                            <th>{{ __('Class') }}</th>
+                            <th>{{ __('AQL') }}</th>
+                            <th>{{ __('Sample') }}</th>
+                            <th>{{ __('Rate') }}</th>
+                            <th>{{ __('Accept') }}</th>
+                            <th>{{ __('Supplier defectives') }}</th>
+                            <th>{{ __('Supplier %') }}</th>
+                            <th>{{ __('Supplier result') }}</th>
+                            <th>{{ __('UMAC defectives') }}</th>
+                            <th>{{ __('UMAC %') }}</th>
+                            <th>{{ __('UMAC result') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($report->samples as $sample)
+                            <tr>
+                                <td class="iir-center">{{ $sample->classLabel() }}</td>
+                                <td class="iir-center">{{ $sample->aqlLabel() }}</td>
+                                <td class="iir-center">{{ $sample->sample_size }}</td>
+                                <td class="iir-center">{{ $sample->rateLabel() }}</td>
+                                <td class="iir-center">{{ $sample->accept_number }}</td>
+                                <td class="iir-center">{{ $sample->supplier_defectives }}</td>
+                                <td class="iir-center">{{ $sample->percentLabel('supplier') }}</td>
+                                <td class="iir-center">{{ $sample->verdictLabel('supplier') }}</td>
+                                <td class="iir-center">{{ $sample->umac_defectives }}</td>
+                                <td class="iir-center">{{ $sample->percentLabel('umac') }}</td>
+                                <td class="iir-center">{{ $sample->verdictLabel('umac') }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
 
         @if ($report->images)
             <div class="admin-card flex flex-wrap gap-3 p-4">
@@ -295,13 +427,22 @@ new #[Layout('core::layouts.app')] class extends Component {
                                 <td class="iir-center">{{ $result->characteristic_class ? (\Modules\Quality\Models\InspectionCharacteristic::CLASSES[$result->characteristic_class] ?? $result->characteristic_class) : '—' }}</td>
                                 <td class="iir-text">{{ $result->specification }}</td>
                                 <td class="iir-text">{{ $result->method }}</td>
-                                @foreach ($this->readings($result, 'supplier') as $value)
-                                    <td class="iir-sample iir-{{ $this->cellState($result, $value) }}">{{ $value !== '' ? $value : '—' }}</td>
+                                @php $rowSamples = $report->sampleSizeForClass($result->characteristic_class); @endphp
+                                @foreach ($this->readings($result, 'supplier') as $offset => $value)
+                                    @if ($offset >= $rowSamples)
+                                        <td class="iir-sample iir-na">—</td>
+                                    @else
+                                        <td class="iir-sample iir-{{ $this->cellState($result, $value) }}">{{ $value !== '' ? $value : '—' }}</td>
+                                    @endif
                                 @endforeach
                                 @php $supplierStatus = $this->sideStatus($result, 'supplier'); @endphp
                                 <td class="iir-status"><span class="iir-status-field iir-{{ $supplierStatus }}">{{ $this->statusLabel($supplierStatus) }}</span></td>
-                                @foreach ($this->readings($result, 'umac') as $value)
-                                    <td class="iir-sample iir-{{ $this->cellState($result, $value) }}">{{ $value !== '' ? $value : '—' }}</td>
+                                @foreach ($this->readings($result, 'umac') as $offset => $value)
+                                    @if ($offset >= $rowSamples)
+                                        <td class="iir-sample iir-na">—</td>
+                                    @else
+                                        <td class="iir-sample iir-{{ $this->cellState($result, $value) }}">{{ $value !== '' ? $value : '—' }}</td>
+                                    @endif
                                 @endforeach
                                 @php $umacStatus = $this->sideStatus($result, 'umac'); @endphp
                                 <td class="iir-status"><span class="iir-status-field iir-{{ $umacStatus }}">{{ $this->statusLabel($umacStatus) }}</span></td>
@@ -389,6 +530,7 @@ new #[Layout('core::layouts.app')] class extends Component {
         .iir-text { min-width: 8rem; text-align: left; font-weight: 600; }
         .iir-note { display: block; margin-top: 4px; font-size: 11px; font-weight: 600; color: #3f3f46; }
         .iir-sample { text-align: center; font-weight: 700; min-width: 2.6rem; }
+        .iir-na { background: #f4f4f5; color: #a1a1aa; font-weight: 600; }
         .iir-sheet td.iir-sample.iir-ok { background: #16a34a !important; color: #fff !important; }
         .iir-sheet td.iir-sample.iir-ng { background: #dc2626 !important; color: #fff !important; }
         .iir-sheet td.iir-status { text-align: center; font-weight: 700; white-space: nowrap; }

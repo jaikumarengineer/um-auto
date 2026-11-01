@@ -20,7 +20,7 @@
     $invalid = $name && $errors->has($name);
     $previewStyle = $shape === 'square'
         ? "height: {$maxHeight}; width: {$maxHeight};"
-        : "max-height: {$maxHeight}; width: 100%; max-width: 16rem;";
+        : "height: {$maxHeight}; width: auto; max-width: 16rem;";
     if ($circle) {
         $previewStyle .= ' border-radius: 9999px;';
     }
@@ -31,7 +31,7 @@
     $folder = trim((string) $folder, '/');
 @endphp
 
-<div class="admin-form-control grid gap-2">
+<div @class(['admin-form-control grid gap-2', 'filepond-collect' => $allowMultiple])>
     @if ($label)
         <flux:label>{{ $label }}</flux:label>
     @endif
@@ -42,7 +42,11 @@
             model: @entangle($attributes->wire('model')).live,
             pond: null,
             fileId: null,
+            multiple: @js((bool) $allowMultiple),
+            skipRevert: 0,
             hasExisting: @js((bool) $previewUrl),
+            uploads: 0,
+            progress: 0,
             init() {
                 window.onAdminFormsReady(() => this.setup());
             },
@@ -68,7 +72,9 @@
                     name: 'file',
                     credits: false,
                     instantUpload: true,
-                    allowMultiple: @js($allowMultiple),
+                    allowMultiple: this.multiple,
+                    allowRevert: true,
+                    allowImagePreview: ! this.multiple,
                     acceptedFileTypes: @js($acceptedFileTypes),
                     maxFileSize: @js($maxFileSize),
                     disabled: @js($disabled),
@@ -95,9 +101,18 @@
                                     throw new Error(message);
                                 }
 
-                                this.hasExisting = false;
-                                this.model = responseData.data.url;
-                                this.fileId = responseData.data.id;
+                                if (this.multiple) {
+                                    const current = Array.isArray(this.model) ? [...this.model] : [];
+                                    current.push({
+                                        id: responseData.data.id,
+                                        url: responseData.data.url,
+                                    });
+                                    this.model = current;
+                                } else {
+                                    this.hasExisting = false;
+                                    this.model = responseData.data.url;
+                                    this.fileId = responseData.data.id;
+                                }
 
                                 return String(responseData.data.id ?? responseData.data.url);
                             },
@@ -107,6 +122,12 @@
                             },
                         },
                         revert: (uniqueFileId, load, error) => {
+                            if (this.skipRevert > 0) {
+                                this.skipRevert -= 1;
+                                load();
+                                return;
+                            }
+
                             const id = this.fileId || uniqueFileId;
 
                             fetch(revertUrl, {
@@ -125,8 +146,13 @@
                                     if (! res.ok || payload.success === false) {
                                         throw new Error(payload.message || 'Delete failed');
                                     }
-                                    this.model = null;
-                                    this.fileId = null;
+                                    if (this.multiple) {
+                                        const current = Array.isArray(this.model) ? this.model : [];
+                                        this.model = current.filter((item) => String(item?.id ?? '') !== String(id));
+                                    } else {
+                                        this.model = null;
+                                        this.fileId = null;
+                                    }
                                     load();
                                 })
                                 .catch((err) => {
@@ -136,6 +162,28 @@
                                 });
                         },
                     },
+                });
+
+                const finishUpload = () => {
+                    this.uploads = Math.max(0, this.uploads - 1);
+                    if (this.uploads === 0) {
+                        this.progress = 0;
+                    }
+                };
+
+                this.pond.on('processfilestart', () => {
+                    this.uploads += 1;
+                });
+                this.pond.on('processfileprogress', (file, amount) => {
+                    const value = Math.round(Math.max(0, Math.min(1, Number(amount) || 0)) * 100);
+                    this.progress = value;
+                });
+                this.pond.on('processfileabort', finishUpload);
+                this.pond.on('processfile', (error, file) => {
+                    finishUpload();
+                    if (! this.multiple || error || ! file) return;
+                    this.skipRevert += 1;
+                    this.pond.removeFile(file.id);
                 });
             },
             removeExisting() {
@@ -157,7 +205,11 @@
             <div
                 x-show="hasExisting"
                 x-cloak
-                class="admin-filepond-preview admin-filepond-preview-{{ $shape }}"
+                @class([
+                    'admin-filepond-preview',
+                    'admin-filepond-preview-'.$shape,
+                    'is-circle' => $circle,
+                ])
                 style="{{ $previewStyle }}"
             >
                 <img src="{{ $previewUrl }}" alt="" class="admin-filepond-preview-img" />
@@ -184,6 +236,16 @@
                 @if ($disabled) disabled @endif
             />
         </div>
+
+        <div x-show="uploads > 0" x-cloak class="mt-2">
+            <div class="mb-1 flex items-center justify-between text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                <span>{{ __('Uploading') }}</span>
+                <span x-text="`${progress}%`"></span>
+            </div>
+            <div class="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700" role="progressbar" :aria-valuenow="progress" aria-valuemin="0" aria-valuemax="100">
+                <div class="h-full rounded-full bg-[var(--admin-primary)] transition-[width] duration-150" :style="`width: ${progress}%`"></div>
+            </div>
+        </div>
     </div>
 
     @if ($description)
@@ -192,5 +254,23 @@
 
     @if ($invalid)
         <flux:error :name="$name" />
+    @endif
+
+    @if ($allowMultiple)
+        <style>
+            .filepond-collect .filepond--root {
+                min-height: 4.75rem;
+            }
+            .filepond-collect .filepond--drop-label {
+                height: 4.75rem !important;
+                min-height: 4.75rem !important;
+            }
+            .filepond-collect .filepond--image-preview-wrapper {
+                display: none !important;
+            }
+            .filepond-collect .filepond--file-status {
+                display: flex !important;
+            }
+        </style>
     @endif
 </div>
